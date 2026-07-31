@@ -105,9 +105,34 @@ npm run start
 
 Mặc định dự án sử dụng lưu trữ tệp tin JSON (`data/db.json`) giúp dễ dàng chạy thử nghiệm mà không cần cài đặt database. Khi muốn chuyển đổi hoặc mở rộng ứng dụng sang hệ quản trị cơ sở dữ liệu **MySQL / MariaDB** cho môi trường Production, hãy thực hiện theo hướng dẫn chi tiết dưới đây:
 
-### 1. Tạo Database & Schema SQL (Create Database & Tables)
+### 1. Import Tệp Cơ Sở Dữ Liệu `schema.sql` Tự Động (Import Database File)
 
-Kết nối vào MySQL server của bạn (thông qua MySQL Workbench, phpMyAdmin, DBeaver hoặc CLI) và chạy đoạn mã DDL SQL sau để khởi tạo cấu trúc các bảng:
+Dự án đã chuẩn bị sẵn tệp dán/nhập dữ liệu trực tiếp **`schema.sql`** ở thư mục gốc. Tệp này bao gồm toàn bộ lệnh khởi tạo Database `sls_db`, các Bảng dữ liệu, Khóa chính/Khóa ngoại, Index và dữ liệu mẫu mặc định (`admin`/`user`).
+
+Bạn có thể nhập tệp `schema.sql` vào MySQL bằng 1 trong các cách sau:
+
+#### Cách 1: Sử dụng Lệnh MySQL CLI (Command Line)
+```bash
+# Nhập trực tiếp tệp schema.sql vào MySQL Server
+mysql -u root -p < schema.sql
+```
+
+#### Cách 2: Sử dụng phpMyAdmin
+1. Truy cập trang điều khiển **phpMyAdmin**.
+2. Chọn Tab **Import** (Nhập).
+3. Nhấp **Choose File** (Chọn tệp) và chọn tệp **`schema.sql`** trong thư mục dự án.
+4. Nhấp nút **Import** (Thực hiện) ở cuối trang để hoàn tất.
+
+#### Cách 3: Sử dụng MySQL Workbench / DBeaver
+1. Mở **MySQL Workbench** và kết nối đến Server.
+2. Vào Menu **File** -> **Open SQL Script...** -> Chọn tệp **`schema.sql`**.
+3. Nhấp biểu tượng **Tia sét (Execute)** để chạy toàn bộ Script.
+
+---
+
+### 2. Cấu Trúc Bảng Dữ Liệu SQL (DDL Reference)
+
+Nếu muốn xem hoặc chỉnh sửa trực tiếp cấu trúc DDL của các bảng trong `schema.sql`:
 
 ```sql
 -- Khởi tạo Database
@@ -169,16 +194,6 @@ CREATE TABLE IF NOT EXISTS `analytics` (
   `clicks` INT DEFAULT 0,
   `bot_views` INT DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Tạo tài khoản Admin mặc định (Username: admin / Password: admin)
-INSERT INTO `users` (`id`, `username`, `email`, `password`, `role`, `status`, `daily_limit`, `must_change_password`)
-VALUES ('usr_admin_default', 'admin', 'admin@sls.local', '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', 'admin', 'active', 9999, 1)
-ON DUPLICATE KEY UPDATE `id`=`id`;
-
--- Tạo cấu hình mặc định ban đầu
-INSERT INTO `settings` (`id`, `site_name`, `site_domain`, `default_redirect`, `default_limit`, `register_enable`, `upload_enable`, `bot_list`)
-VALUES ('default', 'Smart Link Service', 'http://localhost:3000', '302', 5, 1, 1, 'facebookexternalhit, facebot, twitterbot, telegrambot, whatsapp, discordbot, googlebot, bingbot, slackbot, zalo, zalocrawler, linkedinbot, applebot')
-ON DUPLICATE KEY UPDATE `id`=`id`;
 ```
 
 ### 2. Khai Báo Biến Môi Trường MySQL (`.env`)
