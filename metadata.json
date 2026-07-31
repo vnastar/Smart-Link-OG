@@ -1,0 +1,6 @@
+{
+  "name": "Smart Link OG",
+  "description": "Smart short link generator with custom Open Graph metadata for social media bots, 302/301 redirects, user and admin management, and visit analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
