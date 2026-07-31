@@ -101,6 +101,146 @@ npm run start
 
 ---
 
+## 🗄️ Hướng Dẫn Cấu Hình Cơ Sở Dữ Liệu MySQL (MySQL Database Setup)
+
+Mặc định dự án sử dụng lưu trữ tệp tin JSON (`data/db.json`) giúp dễ dàng chạy thử nghiệm mà không cần cài đặt database. Khi muốn chuyển đổi hoặc mở rộng ứng dụng sang hệ quản trị cơ sở dữ liệu **MySQL / MariaDB** cho môi trường Production, hãy thực hiện theo hướng dẫn chi tiết dưới đây:
+
+### 1. Tạo Database & Schema SQL (Create Database & Tables)
+
+Kết nối vào MySQL server của bạn (thông qua MySQL Workbench, phpMyAdmin, DBeaver hoặc CLI) và chạy đoạn mã DDL SQL sau để khởi tạo cấu trúc các bảng:
+
+```sql
+-- Khởi tạo Database
+CREATE DATABASE IF NOT EXISTS `sls_db` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `sls_db`;
+
+-- 1. Bảng Users (Quản lý tài khoản)
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` VARCHAR(50) PRIMARY KEY,
+  `username` VARCHAR(100) NOT NULL UNIQUE,
+  `email` VARCHAR(150) NOT NULL UNIQUE,
+  `password` VARCHAR(255) NOT NULL,
+  `role` ENUM('admin', 'user') DEFAULT 'user',
+  `status` ENUM('active', 'blocked') DEFAULT 'active',
+  `daily_limit` INT DEFAULT 5,
+  `must_change_password` TINYINT(1) DEFAULT 0,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 2. Bảng Links (Quản lý liên kết rút gọn & OpenGraph metadata)
+CREATE TABLE IF NOT EXISTS `links` (
+  `id` VARCHAR(50) PRIMARY KEY,
+  `slug` VARCHAR(100) NOT NULL UNIQUE,
+  `destination_url` TEXT NOT NULL,
+  `title` VARCHAR(255) DEFAULT '',
+  `description` TEXT,
+  `image` TEXT,
+  `user_id` VARCHAR(50) NOT NULL,
+  `clicks` INT DEFAULT 0,
+  `bot_views` INT DEFAULT 0,
+  `is_active` TINYINT(1) DEFAULT 1,
+  `redirect_code` INT DEFAULT 302,
+  `expires_at` DATETIME NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+  INDEX `idx_slug` (`slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 3. Bảng Settings (Cấu hình hệ thống & danh sách Bot)
+CREATE TABLE IF NOT EXISTS `settings` (
+  `id` VARCHAR(50) PRIMARY KEY DEFAULT 'default',
+  `site_name` VARCHAR(150) DEFAULT 'Smart Link Service',
+  `site_domain` VARCHAR(255) DEFAULT 'http://localhost:3000',
+  `logo` TEXT,
+  `favicon` TEXT,
+  `default_redirect` VARCHAR(10) DEFAULT '302',
+  `default_limit` INT DEFAULT 5,
+  `register_enable` TINYINT(1) DEFAULT 1,
+  `upload_enable` TINYINT(1) DEFAULT 1,
+  `bot_list` TEXT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 4. Bảng Analytics (Thống kê truy cập theo ngày)
+CREATE TABLE IF NOT EXISTS `analytics` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `date` DATE NOT NULL UNIQUE,
+  `clicks` INT DEFAULT 0,
+  `bot_views` INT DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Tạo tài khoản Admin mặc định (Username: admin / Password: admin)
+INSERT INTO `users` (`id`, `username`, `email`, `password`, `role`, `status`, `daily_limit`, `must_change_password`)
+VALUES ('usr_admin_default', 'admin', 'admin@sls.local', '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', 'admin', 'active', 9999, 1)
+ON DUPLICATE KEY UPDATE `id`=`id`;
+
+-- Tạo cấu hình mặc định ban đầu
+INSERT INTO `settings` (`id`, `site_name`, `site_domain`, `default_redirect`, `default_limit`, `register_enable`, `upload_enable`, `bot_list`)
+VALUES ('default', 'Smart Link Service', 'http://localhost:3000', '302', 5, 1, 1, 'facebookexternalhit, facebot, twitterbot, telegrambot, whatsapp, discordbot, googlebot, bingbot, slackbot, zalo, zalocrawler, linkedinbot, applebot')
+ON DUPLICATE KEY UPDATE `id`=`id`;
+```
+
+### 2. Khai Báo Biến Môi Trường MySQL (`.env`)
+
+Thêm các tham số cấu hình kết nối database trong tệp `.env`:
+
+```env
+# Đổi kiểu database sang mysql
+DB_TYPE="mysql"
+
+# Thông tin kết nối MySQL Database
+DB_HOST="localhost"
+DB_PORT=3306
+DB_USER="root"
+DB_PASSWORD="your_mysql_password_here"
+DB_NAME="sls_db"
+```
+
+### 3. Cài Đặt Thư Viện Kết Nối `mysql2`
+
+Chạy lệnh cài đặt thư viện kết nối MySQL tốc độ cao cho Node.js:
+
+```bash
+npm install mysql2
+```
+
+### 4. Mẫu Kết Nối Connection Pool trong Node.js (`server/db_mysql.ts`)
+
+Tạo tệp `server/db_mysql.ts` để quản lý kết nối và thực thi các câu lệnh truy vấn tới MySQL server:
+
+```typescript
+import mysql from 'mysql2/promise';
+
+export const pool = mysql.createPool({
+  host: process.env.DB_HOST || 'localhost',
+  port: Number(process.env.DB_PORT) || 3306,
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'sls_db',
+  waitForConnections: true,
+  connectionLimit: 10,
+  maxIdle: 10,
+  idleTimeout: 60000,
+  queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0
+});
+
+// Thử kết nối database
+export async function checkConnection() {
+  try {
+    const connection = await pool.getConnection();
+    console.log('✅ Kết nối MySQL Database thành công!');
+    connection.release();
+  } catch (error) {
+    console.error('❌ Lỗi kết nối MySQL Database:', error);
+  }
+}
+```
+
+---
+
 ## 🔑 Tài Khoản Dùng Thử Demo (Preset Demo Accounts)
 
 Hệ thống đã tự động khởi tạo sẵn 2 tài khoản demo để bạn thử nghiệm ngay sau khi chạy:
