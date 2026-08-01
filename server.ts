@@ -74,7 +74,10 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Vui lòng hoàn thành xác minh Cloudflare Turnstile trước khi đăng nhập' });
     }
 
-    const secretKey = settings.cloudflare_secret_key || '1x000000000000000000000000000000AA';
+    const secretKey = (settings.cloudflare_secret_key && settings.cloudflare_secret_key.trim())
+      ? settings.cloudflare_secret_key.trim()
+      : '1x000000000000000000000000000000AA';
+
     try {
       const verifyRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
         method: 'POST',
@@ -90,7 +93,10 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
         if (cf_turnstile_response.startsWith('dev_pass_token_')) {
           // Dev fallback token bypass allowed
         } else {
-          return res.status(400).json({ error: 'Xác minh Cloudflare Turnstile không hợp lệ hoặc đã hết hạn' });
+          const codes = verifyData['error-codes'] ? verifyData['error-codes'].join(', ') : 'mã token không hợp lệ';
+          return res.status(400).json({
+            error: `Xác minh Cloudflare Turnstile thất bại (${codes}). Vui lòng kiểm tra lại cấu hình Key hoặc dùng Bỏ qua bản Dev.`
+          });
         }
       }
     } catch (err) {
@@ -516,6 +522,52 @@ app.put('/api/admin/settings', requireAdmin, (req: Request, res: Response) => {
   const settings = db.updateSettings(req.body);
   db.addLog((req as any).user.id, 'UPDATE_SETTINGS', `Cập nhật cấu hình hệ thống`, req.ip || '127.0.0.1');
   return res.json({ settings });
+});
+
+app.post('/api/admin/verify-turnstile-test', requireAdmin, async (req: Request, res: Response) => {
+  const { secret_key, cf_turnstile_response } = req.body;
+
+  if (!cf_turnstile_response) {
+    return res.status(400).json({ error: 'Vui lòng tích chọn/hoàn thành widget Turnstile trước khi bấm Kiểm Tra.' });
+  }
+
+  const secretToUse = (secret_key && secret_key.trim())
+    ? secret_key.trim()
+    : '1x000000000000000000000000000000AA';
+
+  try {
+    const verifyRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        secret: secretToUse,
+        response: cf_turnstile_response,
+        remoteip: (req.ip || '127.0.0.1').toString()
+      })
+    });
+
+    const verifyData: any = await verifyRes.json();
+    if (verifyData.success) {
+      return res.json({
+        success: true,
+        message: 'Xác minh thành công! Cặp Site Key và Secret Key của bạn hoàn toàn hợp lệ.'
+      });
+    } else {
+      if (cf_turnstile_response.startsWith('dev_pass_token_')) {
+        return res.json({
+          success: true,
+          message: 'Xác minh qua bản Dev Bypass thành công! Hệ thống sẵn sàng hoạt động.'
+        });
+      }
+      const codes = verifyData['error-codes'] ? verifyData['error-codes'].join(', ') : 'Mã token không hợp lệ hoặc sai Secret Key';
+      return res.status(400).json({
+        success: false,
+        error: `Kiểm tra thất bại từ Cloudflare (${codes}). Vui lòng kiểm tra lại Secret Key hoặc Site Key.`
+      });
+    }
+  } catch (err: any) {
+    return res.status(500).json({ error: `Lỗi kết nối tới server Cloudflare: ${err.message || err}` });
+  }
 });
 
 app.get('/api/admin/logs', requireAdmin, (req: Request, res: Response) => {

@@ -299,6 +299,16 @@ export const api = {
     return data.settings;
   },
 
+  async testTurnstileConfig(cfTurnstileResponse: string, secretKey?: string): Promise<{ success: boolean; message: string }> {
+    return this.request('/api/admin/verify-turnstile-test', {
+      method: 'POST',
+      body: JSON.stringify({
+        cf_turnstile_response: cfTurnstileResponse,
+        secret_key: secretKey
+      })
+    });
+  },
+
   async getAdminLogs(): Promise<{ visits: VisitLog[]; logs: AuditLog[] }> {
     return this.request('/api/admin/logs');
   }
