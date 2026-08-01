@@ -90,7 +90,10 @@ export const api = {
       const text = await res.text();
       if (!res.ok) {
         if (text.includes('<!DOCTYPE') || text.includes('<html')) {
-          throw new Error(`Máy chủ trả về trang HTML thay vì JSON (Mã lỗi ${res.status}). Vui lòng kiểm tra backend Node.js server hoặc proxy /api trên Shared Host.`);
+          if (res.status === 404) {
+            throw new Error(`Lỗi 404: Đường dẫn API '${path}' không tìm thấy trên Hostinger. Nguyên nhân: Hostinger đang phục vụ web tĩnh thay vì chuyển tiếp yêu cầu /api đến ứng dụng Node.js backend. Vui lòng kiểm tra mục 'Setup Node.js App' trong hPanel hoặc đặt window.API_BASE_URL trong index.html.`);
+          }
+          throw new Error(`Máy chủ trả về trang HTML thay vì JSON (Mã lỗi ${res.status}). Vui lòng kiểm tra lại cấu hình ứng dụng Node.js backend.`);
         }
         throw new Error(text || `Yêu cầu thất bại với mã lỗi ${res.status}`);
       }

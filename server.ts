@@ -6,7 +6,18 @@ import { db } from './server/db.js';
 import { BotDetector } from './server/services/botDetector.js';
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
+
+// CORS headers for hosting environments
+app.use((req: Request, res: Response, next: NextFunction) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -552,18 +563,30 @@ app.get('/:slug', (req: Request, res: Response, next: NextFunction) => {
 // -------------------------------------------------------------
 // VITE / STATIC SERVING
 // -------------------------------------------------------------
+// Fallback for missing API routes - strictly return JSON 404
+app.use('/api', (req: Request, res: Response) => {
+  res.status(404).json({ error: `API endpoint '${req.originalUrl}' không tồn tại trên máy chủ backend Node.js.` });
+});
+
 async function startServer() {
-  if (process.env.NODE_ENV !== 'production') {
+  const distPath = path.join(process.cwd(), 'dist');
+  const hasDist = fs.existsSync(distPath);
+
+  if (process.env.NODE_ENV !== 'production' && !hasDist) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa'
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*all', (req: Request, res: Response) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    app.get('*', (req: Request, res: Response) => {
+      const indexPath = path.join(distPath, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.status(404).send('Dự án chưa được build. Vui lòng chạy npm run build trước.');
+      }
     });
   }
 
