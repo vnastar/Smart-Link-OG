@@ -2,12 +2,23 @@ import { User, LinkItem, SiteSettings, UserStats, AdminStats, AuditLog, VisitLog
 
 const TOKEN_KEY = 'smart_link_og_token';
 
+// Determine API Base URL dynamically
+const getApiBaseUrl = (): string => {
+  if (typeof window !== 'undefined' && (window as any).API_BASE_URL) {
+    return String((window as any).API_BASE_URL).replace(/\/+$/, '');
+  }
+  const viteUrl = (import.meta as any).env?.VITE_API_URL;
+  if (viteUrl) {
+    return String(viteUrl).replace(/\/+$/, '');
+  }
+  return '';
+};
+
 export const api = {
   getToken(): string | null {
     try {
       const raw = localStorage.getItem(TOKEN_KEY);
       if (!raw || raw === 'null' || raw === 'undefined') return null;
-      // Strip any non-printable ASCII or control characters
       const clean = raw.replace(/[^\x20-\x7E]/g, '').trim();
       return clean || null;
     } catch {
@@ -36,34 +47,89 @@ export const api = {
     }
   },
 
-  async headers(): Promise<Record<string, string>> {
-    const token = this.getToken();
-    const h: Record<string, string> = {
-      'Content-Type': 'application/json'
+  async request(path: string, options: RequestInit = {}): Promise<any> {
+    const baseUrl = getApiBaseUrl();
+    const url = baseUrl ? `${baseUrl}${path.startsWith('/') ? path : '/' + path}` : path;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...((options.headers as Record<string, string>) || {})
     };
+
+    const token = this.getToken();
     if (token) {
-      const safeToken = String(token).replace(/[^\x21-\x7E]/g, '');
-      if (safeToken) {
-        h['Authorization'] = `Bearer ${safeToken}`;
+      const cleanToken = String(token).replace(/[^\x21-\x7E]/g, '').trim();
+      if (cleanToken) {
+        headers['Authorization'] = `Bearer ${cleanToken}`;
       }
     }
-    return h;
+
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        ...options,
+        headers
+      });
+    } catch (err: any) {
+      if (err?.name === 'SyntaxError' || err?.name === 'DOMException' || String(err).includes('pattern')) {
+        throw new Error('Không thể kết nối đến máy chủ API. Vui lòng kiểm tra địa chỉ backend server.');
+      }
+      throw new Error('Lỗi kết nối máy chủ backend. Vui lòng kiểm tra lại kết nối mạng.');
+    }
+
+    const contentType = res.headers.get('content-type') || '';
+    let data: any = {};
+
+    if (contentType.includes('application/json')) {
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
+    } else {
+      const text = await res.text();
+      if (!res.ok) {
+        if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+          throw new Error(`Máy chủ trả về trang HTML thay vì JSON (Mã lỗi ${res.status}). Vui lòng kiểm tra backend Node.js server hoặc proxy /api trên Shared Host.`);
+        }
+        throw new Error(text || `Yêu cầu thất bại với mã lỗi ${res.status}`);
+      }
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error('Dữ liệu máy chủ trả về không đúng định dạng JSON.');
+      }
+    }
+
+    if (!res.ok) {
+      const err: any = new Error(data.error || `Yêu cầu thất bại (${res.status})`);
+      err.code = data.code;
+      err.created_today = data.created_today;
+      err.daily_limit = data.daily_limit;
+      throw err;
+    }
+
+    return data;
+  },
+
+  // Public config
+  async getPublicConfig(): Promise<{ site_name: string; site_domain: string }> {
+    try {
+      return await this.request('/api/public-settings');
+    } catch {
+      return { site_name: 'Smart Link OG', site_domain: window.location.origin };
+    }
   },
 
   // Auth
   async login(username: string, password: string): Promise<{ token: string; user: User }> {
     const cleanUsername = String(username || '').trim();
     const cleanPassword = String(password || '');
-    const res = await fetch('/api/auth/login', {
+    const data = await this.request('/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: cleanUsername, password: cleanPassword })
     });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
-    }
-    if (data.token) {
+    if (data?.token) {
       this.setToken(data.token);
     }
     return data;
@@ -73,37 +139,26 @@ export const api = {
     const cleanUsername = String(username || '').trim();
     const cleanEmail = String(email || '').trim();
     const cleanPassword = String(password || '');
-    const res = await fetch('/api/auth/register', {
+    const data = await this.request('/api/auth/register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: cleanUsername, email: cleanEmail, password: cleanPassword })
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Đăng ký thất bại');
-    if (data.token) {
+    if (data?.token) {
       this.setToken(data.token);
     }
     return data;
   },
 
   async getMe(): Promise<User> {
-    const headers = await this.headers();
-    const res = await fetch('/api/auth/me', { headers });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Không thể lấy thông tin tài khoản');
+    const data = await this.request('/api/auth/me');
     return data.user;
   },
 
   async changePassword(current_password?: string, new_password?: string): Promise<{ user: User }> {
-    const headers = await this.headers();
-    const res = await fetch('/api/auth/change-password', {
+    return this.request('/api/auth/change-password', {
       method: 'POST',
-      headers,
       body: JSON.stringify({ current_password, new_password })
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Đổi mật khẩu thất bại');
-    return data;
   },
 
   logout() {
@@ -112,30 +167,20 @@ export const api = {
 
   // User Dashboard
   async getUserStats(): Promise<UserStats> {
-    const headers = await this.headers();
-    const res = await fetch('/api/user/stats', { headers });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Lỗi tải thống kê');
-    return data;
+    return this.request('/api/user/stats');
   },
 
   async getLinks(search?: string): Promise<LinkItem[]> {
-    const headers = await this.headers();
-    const url = search ? `/api/links?search=${encodeURIComponent(search)}` : '/api/links';
-    const res = await fetch(url, { headers });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Lỗi tải danh sách link');
+    const path = search ? `/api/links?search=${encodeURIComponent(search)}` : '/api/links';
+    const data = await this.request(path);
     return data.links;
   },
 
   async checkSlug(slug: string): Promise<boolean> {
-    const headers = await this.headers();
-    const res = await fetch('/api/links/check-slug', {
+    const data = await this.request('/api/links/check-slug', {
       method: 'POST',
-      headers,
       body: JSON.stringify({ slug })
     });
-    const data = await res.json();
     return data.available;
   },
 
@@ -147,149 +192,88 @@ export const api = {
     image?: string;
     expires_at?: string | null;
   }): Promise<LinkItem> {
-    const headers = await this.headers();
-    const res = await fetch('/api/links', {
+    const data = await this.request('/api/links', {
       method: 'POST',
-      headers,
       body: JSON.stringify(payload)
     });
-    const data = await res.json();
-    if (!res.ok) {
-      const err: any = new Error(data.error || 'Tạo link thất bại');
-      err.code = data.code;
-      err.created_today = data.created_today;
-      err.daily_limit = data.daily_limit;
-      throw err;
-    }
     return data.link;
   },
 
   async updateLink(id: string, payload: Partial<LinkItem>): Promise<LinkItem> {
-    const headers = await this.headers();
-    const res = await fetch(`/api/links/${id}`, {
+    const data = await this.request(`/api/links/${id}`, {
       method: 'PUT',
-      headers,
       body: JSON.stringify(payload)
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Cập nhật link thất bại');
     return data.link;
   },
 
   async deleteLink(id: string): Promise<void> {
-    const headers = await this.headers();
-    const res = await fetch(`/api/links/${id}`, {
-      method: 'DELETE',
-      headers
+    await this.request(`/api/links/${id}`, {
+      method: 'DELETE'
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Xóa link thất bại');
   },
 
   async uploadImage(imageBase64: string, fileName?: string): Promise<string> {
-    const headers = await this.headers();
-    const res = await fetch('/api/upload', {
+    const data = await this.request('/api/upload', {
       method: 'POST',
-      headers,
       body: JSON.stringify({ image_base64: imageBase64, file_name: fileName })
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Upload ảnh thất bại');
     return data.url;
   },
 
   async simulateBot(slug: string, userAgent: string): Promise<BotSimulationResult> {
-    const res = await fetch('/api/simulate-bot', {
+    return this.request('/api/simulate-bot', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slug, user_agent: userAgent })
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Lỗi giả lập bot');
-    return data;
   },
 
   // Admin
   async getAdminStats(): Promise<AdminStats> {
-    const headers = await this.headers();
-    const res = await fetch('/api/admin/stats', { headers });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Lỗi tải thống kê quản trị');
-    return data;
+    return this.request('/api/admin/stats');
   },
 
   async getAdminUsers(): Promise<User[]> {
-    const headers = await this.headers();
-    const res = await fetch('/api/admin/users', { headers });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Lỗi tải danh sách người dùng');
+    const data = await this.request('/api/admin/users');
     return data.users;
   },
 
   async updateAdminUser(id: string, updates: Partial<User>): Promise<User> {
-    const headers = await this.headers();
-    const res = await fetch(`/api/admin/users/${id}`, {
+    const data = await this.request(`/api/admin/users/${id}`, {
       method: 'PUT',
-      headers,
       body: JSON.stringify(updates)
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Cập nhật tài khoản thất bại');
     return data.user;
   },
 
   async resetUserPassword(id: string, new_password?: string): Promise<string> {
-    const headers = await this.headers();
-    const res = await fetch(`/api/admin/users/${id}/reset-password`, {
+    const data = await this.request(`/api/admin/users/${id}/reset-password`, {
       method: 'POST',
-      headers,
       body: JSON.stringify({ new_password })
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Reset mật khẩu thất bại');
     return data.message;
   },
 
   async deleteAdminUser(id: string): Promise<void> {
-    const headers = await this.headers();
-    const res = await fetch(`/api/admin/users/${id}`, {
-      method: 'DELETE',
-      headers
+    await this.request(`/api/admin/users/${id}`, {
+      method: 'DELETE'
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Xóa tài khoản thất bại');
   },
 
   async getAdminSettings(): Promise<SiteSettings> {
-    const headers = await this.headers();
-    const res = await fetch('/api/admin/settings', { headers });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Lỗi tải cấu hình');
+    const data = await this.request('/api/admin/settings');
     return data.settings;
   },
 
   async updateAdminSettings(settings: Partial<SiteSettings>): Promise<SiteSettings> {
-    const headers = await this.headers();
-    const res = await fetch('/api/admin/settings', {
+    const data = await this.request('/api/admin/settings', {
       method: 'PUT',
-      headers,
       body: JSON.stringify(settings)
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Cập nhật cấu hình thất bại');
     return data.settings;
   },
 
   async getAdminLogs(): Promise<{ visits: VisitLog[]; logs: AuditLog[] }> {
-    const headers = await this.headers();
-    const res = await fetch('/api/admin/logs', { headers });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Lỗi tải nhật ký hệ thống');
-    return data;
-  },
-
-  async getPublicConfig(): Promise<{ site_name: string; site_domain: string; register_enable: boolean; logo: string; favicon: string }> {
-    const res = await fetch('/api/public/config');
-    return res.json();
+    return this.request('/api/admin/logs');
   }
 };

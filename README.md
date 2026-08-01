@@ -256,6 +256,35 @@ export async function checkConnection() {
 
 ---
 
+## 🚀 Hướng Dẫn Triển Khai Lên Shared Hosting (Shared Hosting Deployment Guide)
+
+Khi triển khai ứng dụng lên **Shared Hosting** (như cPanel, DirectAdmin, Hostinger, Namecheap, v.v.):
+
+### 1. Triển Khai Backend Node.js
+* Trên cPanel / DirectAdmin, vào mục **Setup Node.js App**.
+* Tạo ứng dụng Node.js mới chọn Application root là thư mục dự án và Startup File là `dist/server.cjs` (sau khi chạy `npm run build`).
+* Nếu Backend chạy trên một domain/port riêng (ví dụ `https://api.yourdomain.com`), hãy khai báo biến môi trường frontend `VITE_API_URL=https://api.yourdomain.com` khi build frontend.
+
+### 2. Triển Khai Frontend SPA với `.htaccess` (Apache Shared Hosting)
+Tạo tệp `.htaccess` trong thư mục web gốc (`public_html`) để hỗ trợ Single Page Application (SPA) routing và chuyển tiếp API:
+
+```apache
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Chuyển tiếp các yêu cầu /api sang Node.js server (nếu chạy qua proxy)
+  # RewriteRule ^api/(.*)$ http://127.0.0.1:3000/api/$1 [P,L]
+
+  # Điều hướng tất cả yêu cầu trang sang index.html cho React Router
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+```
+
+---
+
 ## 🔑 Tài Khoản Dùng Thử Demo (Preset Demo Accounts)
 
 Hệ thống đã tự động khởi tạo sẵn 2 tài khoản demo để bạn thử nghiệm ngay sau khi chạy:
