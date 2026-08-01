@@ -4,15 +4,36 @@ const TOKEN_KEY = 'smart_link_og_token';
 
 export const api = {
   getToken(): string | null {
-    return localStorage.getItem(TOKEN_KEY);
+    try {
+      const raw = localStorage.getItem(TOKEN_KEY);
+      if (!raw || raw === 'null' || raw === 'undefined') return null;
+      // Strip any non-printable ASCII or control characters
+      const clean = raw.replace(/[^\x20-\x7E]/g, '').trim();
+      return clean || null;
+    } catch {
+      return null;
+    }
   },
 
   setToken(token: string) {
-    localStorage.setItem(TOKEN_KEY, token);
+    try {
+      if (token) {
+        const clean = String(token).replace(/[^\x20-\x7E]/g, '').trim();
+        localStorage.setItem(TOKEN_KEY, clean);
+      } else {
+        this.clearToken();
+      }
+    } catch (e) {
+      console.error('Failed to set token', e);
+    }
   },
 
   clearToken() {
-    localStorage.removeItem(TOKEN_KEY);
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+    } catch (e) {
+      console.error('Failed to clear token', e);
+    }
   },
 
   async headers(): Promise<Record<string, string>> {
@@ -28,15 +49,22 @@ export const api = {
 
   // Auth
   async login(username: string, password: string): Promise<{ token: string; user: User }> {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Đăng nhập thất bại');
-    this.setToken(data.token);
-    return data;
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim(), password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Đăng nhập thất bại');
+      this.setToken(data.token);
+      return data;
+    } catch (err: any) {
+      if (err instanceof DOMException || (err.message && err.message.toLowerCase().includes('pattern'))) {
+        throw new Error('Lỗi cấu trúc dữ liệu đăng nhập. Vui lòng thử lại.');
+      }
+      throw err;
+    }
   },
 
   async register(username: string, email: string, password: string): Promise<{ token: string; user: User }> {
