@@ -5,28 +5,29 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- --------------------------------------------------------
--- Database Creation & Selection
+-- Drop existing tables
 -- --------------------------------------------------------
-CREATE DATABASE IF NOT EXISTS `sls_db` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `sls_db`;
+DROP TABLE IF EXISTS `analytics`;
+DROP TABLE IF EXISTS `settings`;
+DROP TABLE IF EXISTS `links`;
+DROP TABLE IF EXISTS `users`;
 
 -- --------------------------------------------------------
 -- Table structure for `users`
 -- --------------------------------------------------------
-DROP TABLE IF EXISTS `links`;
-DROP TABLE IF EXISTS `users`;
-
 CREATE TABLE `users` (
-  `id` VARCHAR(50) NOT NULL,
+  `id` CHAR(36) NOT NULL,
   `username` VARCHAR(100) NOT NULL,
   `email` VARCHAR(150) NOT NULL,
   `password` VARCHAR(255) NOT NULL,
-  `role` ENUM('admin', 'user') NOT NULL DEFAULT 'user',
-  `status` ENUM('active', 'blocked') NOT NULL DEFAULT 'active',
+  `role` ENUM('admin','user') NOT NULL DEFAULT 'user',
+  `status` ENUM('active','blocked') NOT NULL DEFAULT 'active',
   `daily_limit` INT NOT NULL DEFAULT 5,
   `must_change_password` TINYINT(1) NOT NULL DEFAULT 0,
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `remember_token` VARCHAR(100) DEFAULT NULL,
+  `email_verified_at` DATETIME DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_username` (`username`),
   UNIQUE KEY `idx_email` (`email`)
