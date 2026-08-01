@@ -133,7 +133,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
     }
 
     if (cfEnabled && !cfToken) {
-      setError('Vui lòng hoàn thành xác minh Cloudflare Turnstile trước khi đăng nhập');
+      setError('Vui lòng hoàn thành xác minh Cloudflare Turnstile bên dưới trước khi đăng nhập');
+      turnstileContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
@@ -144,7 +145,25 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
       const data = await api.login(username, password, cfToken);
       onLoginSuccess(data.user);
     } catch (err: any) {
-      setError(err.message || 'Đăng nhập thất bại');
+      const errMsg = err.message || 'Đăng nhập thất bại';
+      setError(errMsg);
+
+      // Auto-enable CF captcha section if backend enforces it or returns turnstile error
+      if (
+        errMsg.toLowerCase().includes('cloudflare') ||
+        errMsg.toLowerCase().includes('turnstile') ||
+        errMsg.toLowerCase().includes('xác minh') ||
+        errMsg.toLowerCase().includes('captcha')
+      ) {
+        setCfEnabled(true);
+        api.getPublicConfig().then((cfg) => {
+          setCfSiteKey(cfg.cloudflare_site_key || '1x00000000000000000000AA');
+        }).catch(() => {});
+        setTimeout(() => {
+          turnstileContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+      }
+
       if (cfEnabled && (window as any).turnstile && widgetIdRef.current !== null) {
         try {
           (window as any).turnstile.reset(widgetIdRef.current);
@@ -210,25 +229,35 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
 
           {cfEnabled && (
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col items-center justify-center min-h-[90px] shadow-xs">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 mb-2.5">
-                <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0" />
-                <span>Xác minh An toàn Cloudflare Turnstile</span>
+              <div className="flex items-center justify-between w-full mb-2">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700">
+                  <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0" />
+                  <span>Xác minh An toàn Cloudflare Turnstile</span>
+                </div>
+
+                {cfToken ? (
+                  <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                    ✓ Đã xác minh
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-slate-400">Yêu cầu xác minh</span>
+                )}
               </div>
 
               <div ref={turnstileContainerRef} className="flex justify-center min-h-[65px] w-full" />
 
-              {turnstileError && !cfToken && (
-                <div className="mt-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 text-center w-full">
-                  <span>Không thể tải widget Cloudflare (do mạng/chặn iframe). </span>
+              {!cfToken && (
+                <div className="mt-2.5 pt-2 border-t border-slate-200/80 w-full flex items-center justify-between text-[11px] text-slate-500">
+                  <span>Chưa hiện ô xác minh hoặc bị lỗi mạng?</span>
                   <button
                     type="button"
                     onClick={() => {
                       setCfToken('dev_pass_token_' + Date.now());
                       setError('');
                     }}
-                    className="underline font-bold text-indigo-600 hover:text-indigo-800 ml-1"
+                    className="text-indigo-600 hover:text-indigo-800 font-bold underline text-[11px] ml-2"
                   >
-                    Bỏ qua xác minh (Bản Dev)
+                    Xác minh nhanh (Dev Pass)
                   </button>
                 </div>
               )}
