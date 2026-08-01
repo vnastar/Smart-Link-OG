@@ -116,6 +116,18 @@ export const AdminSettingsView: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!settings) return;
+
+    // Check if Cloudflare Turnstile is enabled but has not been tested successfully
+    if (settings.cloudflare_turnstile_enable && testStatus.type !== 'success') {
+      setSaving(false);
+      setTestStatus({
+        type: 'error',
+        msg: '⚠️ BẮT BUỘC KIỂM TRA: Bạn đang bật xác minh Cloudflare Turnstile khi đăng nhập. Vui lòng hoàn thành Bước 2 (Tích chọn captcha và bấm "Kiểm Tra Kết Nối Với Server") thành công trước khi lưu cấu hình để phòng tránh nguy cơ bị khóa trang đăng nhập!'
+      });
+      turnstileTestRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
     setSaving(true);
     setSavedMsg('');
     try {
