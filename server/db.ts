@@ -49,7 +49,10 @@ const DEFAULT_SETTINGS: SiteSettings = {
   default_redirect: '302',
   logo: '',
   favicon: '',
-  bot_list: DEFAULT_BOT_LIST
+  bot_list: DEFAULT_BOT_LIST,
+  cloudflare_turnstile_enable: false,
+  cloudflare_site_key: '',
+  cloudflare_secret_key: ''
 };
 
 const SEED_DATA: DatabaseSchema = {

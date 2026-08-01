@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { SiteSettings } from '../types.js';
-import { Settings, Save, CheckCircle2, Globe, Shield, Bot, Code, Sliders } from 'lucide-react';
+import { Settings, Save, CheckCircle2, Globe, Shield, Bot, Code, Sliders, ShieldCheck, Key } from 'lucide-react';
 
 export const AdminSettingsView: React.FC = () => {
   const [settings, setSettings] = useState<SiteSettings | null>(null);
@@ -178,7 +178,82 @@ export const AdminSettingsView: React.FC = () => {
           </div>
         </div>
 
-        {/* Section 3: Bot Inspector List */}
+        {/* Section 3: Cloudflare Turnstile Login Verification */}
+        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+            <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-indigo-600" /> Cấu Hình API Xác Minh Đăng Nhập Cloudflare Turnstile
+            </h3>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+              settings.cloudflare_turnstile_enable ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-100 text-slate-600 border border-slate-200'
+            }`}>
+              {settings.cloudflare_turnstile_enable ? 'ĐANG BẬT' : 'ĐANG TẮT'}
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-500">
+            Bật tính năng xác minh CAPTCHA thông minh Cloudflare Turnstile trên trang đăng nhập để ngăn chặn tấn công dò mật khẩu tự động (Brute-force) và Bot spam.
+          </p>
+
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 space-y-3">
+            <label className="flex items-center justify-between gap-3 cursor-pointer">
+              <div className="flex items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={!!settings.cloudflare_turnstile_enable}
+                  onChange={(e) => setSettings({ ...settings, cloudflare_turnstile_enable: e.target.checked })}
+                  className="w-4 h-4 accent-indigo-600 rounded cursor-pointer"
+                />
+                <div>
+                  <span className="text-xs font-bold text-slate-800 block">Kích hoạt xác minh Cloudflare Turnstile khi Đăng Nhập</span>
+                  <span className="text-[11px] text-slate-500 block">Yêu cầu người dùng xác minh chống bot trước khi gửi yêu cầu đăng nhập</span>
+                </div>
+              </div>
+            </label>
+
+            {settings.cloudflare_turnstile_enable && (
+              <div className="pt-3 border-t border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                    <span>Cloudflare Site Key</span>
+                    <span className="text-[10px] font-mono text-indigo-600 normal-case">(Frontend Site Key)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.cloudflare_site_key || ''}
+                    onChange={(e) => setSettings({ ...settings, cloudflare_site_key: e.target.value })}
+                    placeholder="VD: 0x4AAAAAA... (hoặc 1x00000000000000000000AA)"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                    <span>Cloudflare Secret Key</span>
+                    <span className="text-[10px] font-mono text-indigo-600 normal-case">(Backend Secret Key)</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={settings.cloudflare_secret_key || ''}
+                    onChange={(e) => setSettings({ ...settings, cloudflare_secret_key: e.target.value })}
+                    placeholder="VD: 0x4AAAAAA... (hoặc 1x000000000000000000000000000000AA)"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="md:col-span-2 bg-indigo-50/70 border border-indigo-100 rounded-lg p-3 text-[11px] text-indigo-900 leading-relaxed">
+                  <strong>Mã Key dùng thử nghiệm chính thức từ Cloudflare:</strong>
+                  <ul className="list-disc list-inside mt-1 space-y-0.5 font-mono text-[10px] text-indigo-800">
+                    <li>Site Key test (Luôn thành công): <code className="bg-white px-1.5 py-0.5 rounded border border-indigo-200 font-bold select-all">1x00000000000000000000AA</code></li>
+                    <li>Secret Key test (Luôn đúng): <code className="bg-white px-1.5 py-0.5 rounded border border-indigo-200 font-bold select-all">1x000000000000000000000000000000AA</code></li>
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Section 4: Bot Inspector List */}
         <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
           <h3 className="font-bold text-base text-slate-900 flex items-center gap-2 border-b border-slate-200 pb-2">
             <Bot className="w-4 h-4 text-indigo-600" /> Danh Sách User-Agent Nhận Dạng Bot (Bot List)

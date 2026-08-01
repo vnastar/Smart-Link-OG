@@ -38,6 +38,9 @@ export interface SiteSettings {
   logo: string;
   favicon: string;
   bot_list: string;
+  cloudflare_turnstile_enable?: boolean;
+  cloudflare_site_key?: string;
+  cloudflare_secret_key?: string;
 }
 
 export interface VisitLog {

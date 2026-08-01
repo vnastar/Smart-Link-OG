@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api.js';
 import { User } from '../types.js';
-import { Link2, Lock, User as UserIcon, LogIn, AlertCircle, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Link2, Lock, User as UserIcon, LogIn, AlertCircle, ShieldCheck } from 'lucide-react';
 
 interface LoginViewProps {
   onLoginSuccess: (user: User) => void;
@@ -15,6 +15,84 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Cloudflare Turnstile state
+  const [cfEnabled, setCfEnabled] = useState(false);
+  const [cfSiteKey, setCfSiteKey] = useState('');
+  const [cfToken, setCfToken] = useState('');
+  const turnstileContainerRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    api.getPublicConfig().then((cfg) => {
+      if (cfg.cloudflare_turnstile_enable) {
+        setCfEnabled(true);
+        setCfSiteKey(cfg.cloudflare_site_key || '1x00000000000000000000AA');
+      }
+    }).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (!cfEnabled) return;
+
+    const keyToUse = cfSiteKey || '1x00000000000000000000AA';
+
+    const renderTurnstile = () => {
+      if ((window as any).turnstile && turnstileContainerRef.current) {
+        if (widgetIdRef.current !== null) {
+          try {
+            (window as any).turnstile.remove(widgetIdRef.current);
+          } catch (e) {
+            // ignore
+          }
+        }
+        turnstileContainerRef.current.innerHTML = '';
+        try {
+          widgetIdRef.current = (window as any).turnstile.render(turnstileContainerRef.current, {
+            sitekey: keyToUse,
+            callback: (token: string) => {
+              setCfToken(token);
+              setError('');
+            },
+            'expired-callback': () => {
+              setCfToken('');
+              setError('Mã xác minh Cloudflare đã hết hạn, vui lòng tích chọn lại.');
+            },
+            'error-callback': () => {
+              setCfToken('');
+            }
+          });
+        } catch (err) {
+          console.error('Turnstile render error:', err);
+        }
+      }
+    };
+
+    if ((window as any).turnstile) {
+      renderTurnstile();
+    } else {
+      const existingScript = document.getElementById('cf-turnstile-script');
+      if (!existingScript) {
+        const script = document.createElement('script');
+        script.id = 'cf-turnstile-script';
+        script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback';
+        script.async = true;
+        script.defer = true;
+        (window as any).onloadTurnstileCallback = () => {
+          renderTurnstile();
+        };
+        document.body.appendChild(script);
+      } else {
+        const interval = setInterval(() => {
+          if ((window as any).turnstile) {
+            clearInterval(interval);
+            renderTurnstile();
+          }
+        }, 150);
+        return () => clearInterval(interval);
+      }
+    }
+  }, [cfEnabled, cfSiteKey]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !password) {
@@ -22,29 +100,25 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
       return;
     }
 
-    setLoading(true);
-    setError('');
-
-    try {
-      const data = await api.login(username, password);
-      onLoginSuccess(data.user);
-    } catch (err: any) {
-      setError(err.message || 'Đăng nhập thất bại');
-    } finally {
-      setLoading(false);
+    if (cfEnabled && !cfToken) {
+      setError('Vui lòng hoàn thành xác minh Cloudflare Turnstile trước khi đăng nhập');
+      return;
     }
-  };
 
-  const handleQuickLogin = async (usr: string, pwd: string) => {
-    setUsername(usr);
-    setPassword(pwd);
     setLoading(true);
     setError('');
+
     try {
-      const data = await api.login(usr, pwd);
+      const data = await api.login(username, password, cfToken);
       onLoginSuccess(data.user);
     } catch (err: any) {
       setError(err.message || 'Đăng nhập thất bại');
+      if (cfEnabled && (window as any).turnstile && widgetIdRef.current !== null) {
+        try {
+          (window as any).turnstile.reset(widgetIdRef.current);
+          setCfToken('');
+        } catch (e) {}
+      }
     } finally {
       setLoading(false);
     }
@@ -102,6 +176,16 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
             </div>
           </div>
 
+          {cfEnabled && (
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col items-center justify-center min-h-[70px]">
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 mb-2">
+                <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Xác minh An toàn Cloudflare Turnstile</span>
+              </div>
+              <div ref={turnstileContainerRef} className="cf-turnstile" />
+            </div>
+          )}
+
           <div className="pt-2 flex items-center gap-2.5">
             <button
               type="submit"
@@ -120,35 +204,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
             </button>
           </div>
         </form>
-
-        {/* Preset Credentials Quick Switcher */}
-        <div className="mt-8 pt-6 border-t border-slate-200">
-          <div className="text-[11px] text-slate-500 font-medium mb-3 flex items-center gap-1.5 justify-center">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            Tài khoản dùng thử Demo có sẵn:
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('admin', 'admin')}
-              className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-left transition"
-            >
-              <div className="font-semibold text-purple-700 flex items-center justify-between">
-                <span>Quản trị (Admin)</span>
-                <span className="text-[9px] bg-amber-100 text-amber-800 px-1 py-0.2 rounded font-semibold">Force Pwd</span>
-              </div>
-              <div className="text-[10px] text-slate-500 font-mono mt-0.5">admin / admin</div>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('user', 'user123')}
-              className="p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-left transition"
-            >
-              <div className="font-semibold text-indigo-700">Thành viên (User)</div>
-              <div className="text-[10px] text-slate-500 font-mono mt-0.5">user / user123</div>
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );

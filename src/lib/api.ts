@@ -116,21 +116,38 @@ export const api = {
   },
 
   // Public config
-  async getPublicConfig(): Promise<{ site_name: string; site_domain: string }> {
+  async getPublicConfig(): Promise<{
+    site_name: string;
+    site_domain: string;
+    register_enable?: boolean;
+    upload_enable?: boolean;
+    logo?: string;
+    favicon?: string;
+    cloudflare_turnstile_enable?: boolean;
+    cloudflare_site_key?: string;
+  }> {
     try {
-      return await this.request('/api/public-settings');
+      return await this.request('/api/public/config');
     } catch {
-      return { site_name: 'Smart Link OG', site_domain: window.location.origin };
+      try {
+        return await this.request('/api/public-settings');
+      } catch {
+        return { site_name: 'Smart Link OG', site_domain: window.location.origin };
+      }
     }
   },
 
   // Auth
-  async login(username: string, password: string): Promise<{ token: string; user: User }> {
+  async login(username: string, password: string, cfTurnstileResponse?: string): Promise<{ token: string; user: User }> {
     const cleanUsername = String(username || '').trim();
     const cleanPassword = String(password || '');
     const data = await this.request('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ username: cleanUsername, password: cleanPassword })
+      body: JSON.stringify({
+        username: cleanUsername,
+        password: cleanPassword,
+        cf_turnstile_response: cfTurnstileResponse
+      })
     });
     if (data?.token) {
       this.setToken(data.token);

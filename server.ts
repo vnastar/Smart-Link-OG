@@ -60,10 +60,40 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
 // -------------------------------------------------------------
 // AUTH API
 // -------------------------------------------------------------
-app.post('/api/auth/login', (req: Request, res: Response) => {
-  const { username, password } = req.body;
+app.post('/api/auth/login', async (req: Request, res: Response) => {
+  const { username, password, cf_turnstile_response } = req.body;
+  const settings = db.getSettings();
+
   if (!username || !password) {
     return res.status(400).json({ error: 'Vui lòng nhập tên đăng nhập và mật khẩu' });
+  }
+
+  // Cloudflare Turnstile verification if enabled
+  if (settings.cloudflare_turnstile_enable) {
+    if (!cf_turnstile_response) {
+      return res.status(400).json({ error: 'Vui lòng hoàn thành xác minh Cloudflare Turnstile trước khi đăng nhập' });
+    }
+
+    if (settings.cloudflare_secret_key) {
+      try {
+        const verifyRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            secret: settings.cloudflare_secret_key,
+            response: cf_turnstile_response,
+            remoteip: (req.ip || '127.0.0.1').toString()
+          })
+        });
+        const verifyData: any = await verifyRes.json();
+        if (!verifyData.success) {
+          return res.status(400).json({ error: 'Xác minh Cloudflare Turnstile không hợp lệ hoặc đã hết hạn' });
+        }
+      } catch (err) {
+        console.error('Cloudflare verify fetch error:', err);
+        return res.status(500).json({ error: 'Lỗi kết nối kiểm tra xác minh Cloudflare Turnstile' });
+      }
+    }
   }
 
   const user = db.getUserByUsername(username);
@@ -498,8 +528,25 @@ app.get('/api/public/config', (req: Request, res: Response) => {
     site_name: settings.site_name,
     site_domain: settings.site_domain,
     register_enable: settings.register_enable,
+    upload_enable: settings.upload_enable,
     logo: settings.logo,
-    favicon: settings.favicon
+    favicon: settings.favicon,
+    cloudflare_turnstile_enable: settings.cloudflare_turnstile_enable ?? false,
+    cloudflare_site_key: settings.cloudflare_site_key || ''
+  });
+});
+
+app.get('/api/public-settings', (req: Request, res: Response) => {
+  const settings = db.getSettings();
+  return res.json({
+    site_name: settings.site_name,
+    site_domain: settings.site_domain,
+    register_enable: settings.register_enable,
+    upload_enable: settings.upload_enable,
+    logo: settings.logo,
+    favicon: settings.favicon,
+    cloudflare_turnstile_enable: settings.cloudflare_turnstile_enable ?? false,
+    cloudflare_site_key: settings.cloudflare_site_key || ''
   });
 });
 
