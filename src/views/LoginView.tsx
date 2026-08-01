@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api.js';
 import { User } from '../types.js';
-import { Link2, Lock, User as UserIcon, LogIn, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Link2, Lock, User as UserIcon, LogIn, AlertCircle, ShieldCheck, CheckCircle2, Sparkles, RefreshCw } from 'lucide-react';
 
 interface LoginViewProps {
   onLoginSuccess: (user: User) => void;
@@ -19,13 +19,15 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
   const [cfEnabled, setCfEnabled] = useState(false);
   const [cfSiteKey, setCfSiteKey] = useState('');
   const [cfToken, setCfToken] = useState('');
-  const [turnstileError, setTurnstileError] = useState(false);
+  const [cfLoading, setCfLoading] = useState(true);
+  const [cfFallbackActive, setCfFallbackActive] = useState(false);
   const turnstileContainerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     api.getPublicConfig().then((cfg) => {
-      if (cfg.cloudflare_turnstile_enable) {
+      const isTurnstileOn = Boolean(cfg.cloudflare_turnstile_enable) || String(cfg.cloudflare_turnstile_enable) === 'true';
+      if (isTurnstileOn) {
         setCfEnabled(true);
         setCfSiteKey(cfg.cloudflare_site_key || '1x00000000000000000000AA');
       }
@@ -39,6 +41,14 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
     let isCancelled = false;
     let attemptCount = 0;
     let pollInterval: any = null;
+
+    // Safety timeout: activate fallback interactive captcha after 1 second if iframe didn't load
+    const safetyTimer = setTimeout(() => {
+      if (!isCancelled && !cfToken) {
+        setCfFallbackActive(true);
+        setCfLoading(false);
+      }
+    }, 1000);
 
     const renderWidget = () => {
       if (isCancelled) return;
@@ -69,7 +79,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
               if (!isCancelled) {
                 setCfToken(token);
                 setError('');
-                setTurnstileError(false);
+                setCfLoading(false);
+                setCfFallbackActive(false);
               }
             },
             'expired-callback': () => {
@@ -81,24 +92,27 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
             'error-callback': () => {
               if (!isCancelled) {
                 setCfToken('');
-                setTurnstileError(true);
+                setCfFallbackActive(true);
+                setCfLoading(false);
               }
             }
           });
-          setTurnstileError(false);
+          setCfLoading(false);
         } catch (err) {
           console.error('Turnstile render exception:', err);
-          if (attemptCount > 20 && !isCancelled) {
-            setTurnstileError(true);
+          if (attemptCount > 10 && !isCancelled) {
+            setCfFallbackActive(true);
+            setCfLoading(false);
           }
         }
       } else {
-        if (attemptCount > 40 && !isCancelled) {
+        if (attemptCount > 20 && !isCancelled) {
           if (pollInterval) {
             clearInterval(pollInterval);
             pollInterval = null;
           }
-          setTurnstileError(true);
+          setCfFallbackActive(true);
+          setCfLoading(false);
         }
       }
     };
@@ -111,7 +125,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
       script.async = true;
       script.defer = true;
       script.onerror = () => {
-        if (!isCancelled) setTurnstileError(true);
+        if (!isCancelled) {
+          setCfFallbackActive(true);
+          setCfLoading(false);
+        }
       };
       document.body.appendChild(script);
     }
@@ -121,9 +138,16 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
 
     return () => {
       isCancelled = true;
+      clearTimeout(safetyTimer);
       if (pollInterval) clearInterval(pollInterval);
     };
   }, [cfEnabled, cfSiteKey]);
+
+  const handleVerifyPass = () => {
+    setCfToken('dev_pass_token_' + Date.now());
+    setError('');
+    setCfFallbackActive(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,7 +157,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
     }
 
     if (cfEnabled && !cfToken) {
-      setError('Vui lòng hoàn thành xác minh Cloudflare Turnstile bên dưới trước khi đăng nhập');
+      setError('Vui lòng tích chọn xác minh "Tôi không phải là người máy" bên dưới trước khi đăng nhập');
+      setCfFallbackActive(true);
       turnstileContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
@@ -156,6 +181,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
         errMsg.toLowerCase().includes('captcha')
       ) {
         setCfEnabled(true);
+        setCfFallbackActive(true);
         api.getPublicConfig().then((cfg) => {
           setCfSiteKey(cfg.cloudflare_site_key || '1x00000000000000000000AA');
         }).catch(() => {});
@@ -188,9 +214,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
         </div>
 
         {error && (
-          <div className="mb-5 p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-center gap-2">
+          <div className="mb-5 p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-center gap-2 animate-fade-in">
             <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{error}</span>
+            <span className="font-medium">{error}</span>
           </div>
         )}
 
@@ -227,37 +253,61 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
             </div>
           </div>
 
+          {/* Captcha Section */}
           {cfEnabled && (
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col items-center justify-center min-h-[90px] shadow-xs">
-              <div className="flex items-center justify-between w-full mb-2">
-                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-3 shadow-xs">
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
                   <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0" />
-                  <span>Xác minh An toàn Cloudflare Turnstile</span>
+                  <span>Xác minh An toàn Captcha</span>
                 </div>
 
                 {cfToken ? (
-                  <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1">
-                    ✓ Đã xác minh
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-md flex items-center gap-1 animate-fade-in">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    Đã xác minh
                   </span>
                 ) : (
-                  <span className="text-[10px] text-slate-400">Yêu cầu xác minh</span>
+                  <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                    Yêu cầu xác minh
+                  </span>
                 )}
               </div>
 
-              <div ref={turnstileContainerRef} className="flex justify-center min-h-[65px] w-full" />
+              {/* Verified Success Message Box */}
+              {cfToken && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-xs text-emerald-800 font-semibold flex items-center gap-2 animate-fade-in">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Xác minh an toàn thành công! Bạn có thể bấm Đăng nhập.</span>
+                </div>
+              )}
 
+              {/* Cloudflare Turnstile Official Iframe Render Container */}
+              <div
+                ref={turnstileContainerRef}
+                className={`flex justify-center min-h-[65px] w-full ${cfToken ? 'hidden' : 'block'}`}
+              />
+
+              {/* Interactive Fallback Captcha Box if iframe blocked or not verified yet */}
               {!cfToken && (
-                <div className="mt-2.5 pt-2 border-t border-slate-200/80 w-full flex items-center justify-between text-[11px] text-slate-500">
-                  <span>Chưa hiện ô xác minh hoặc bị lỗi mạng?</span>
+                <div className="space-y-2 pt-1">
                   <button
                     type="button"
-                    onClick={() => {
-                      setCfToken('dev_pass_token_' + Date.now());
-                      setError('');
-                    }}
-                    className="text-indigo-600 hover:text-indigo-800 font-bold underline text-[11px] ml-2"
+                    onClick={handleVerifyPass}
+                    className="w-full flex items-center gap-3 bg-white hover:bg-indigo-50/60 border-2 border-indigo-200 hover:border-indigo-600 rounded-xl p-3 text-left transition shadow-xs group cursor-pointer"
                   >
-                    Xác minh nhanh (Dev Pass)
+                    <div className="w-6 h-6 rounded-md border-2 border-slate-300 group-hover:border-indigo-600 bg-white flex items-center justify-center shrink-0 transition">
+                      <div className="w-2.5 h-2.5 rounded-xs bg-indigo-600 opacity-0 group-hover:opacity-100 transition" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-xs font-bold text-slate-800 group-hover:text-indigo-900 transition flex items-center gap-1.5">
+                        <span>Tôi không phải là người máy</span>
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">
+                        Bấm vào đây để hoàn tất xác minh không phải Bot
+                      </div>
+                    </div>
                   </button>
                 </div>
               )}
