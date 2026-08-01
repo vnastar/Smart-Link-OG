@@ -317,7 +317,9 @@ app.post('/api/upload', requireAuth, (req: Request, res: Response) => {
     const targetPath = path.join(uploadsDir, uniqueName);
 
     fs.writeFileSync(targetPath, buffer);
-    const publicUrl = `/uploads/${uniqueName}`;
+    const domain = settings.site_domain || `${req.protocol}://${req.get('host')}`;
+    const cleanDomain = domain.replace(/\/$/, '');
+    const publicUrl = `${cleanDomain}/uploads/${uniqueName}`;
 
     return res.json({ url: publicUrl });
   } catch (err) {

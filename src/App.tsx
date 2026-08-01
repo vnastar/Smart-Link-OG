@@ -23,6 +23,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loadingUser, setLoadingUser] = useState(true);
   const [currentPath, setCurrentPath] = useState('/dashboard');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [siteConfig, setSiteConfig] = useState({
     site_name: 'Smart Link OG',
     site_domain: 'https://sls.vnastar.com'
@@ -87,6 +88,7 @@ export default function App() {
   };
 
   const handleNavigate = (path: string) => {
+    setMobileMenuOpen(false);
     if (user && user.must_change_password && path !== '/dashboard/password') {
       setCurrentPath('/dashboard/password');
       return;
@@ -171,16 +173,21 @@ export default function App() {
         onOpenBotSimulator={() => openBotInspector('video01')}
         siteName={siteConfig.site_name}
         siteDomain={siteConfig.site_domain}
+        onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)}
+        isMobileMenuOpen={mobileMenuOpen}
       />
 
-      <div className="flex flex-1">
+      <div className="flex flex-1 relative">
         <Sidebar
           currentPath={currentPath}
           onNavigate={handleNavigate}
           user={user}
+          isMobileOpen={mobileMenuOpen}
+          onCloseMobile={() => setMobileMenuOpen(false)}
+          onOpenBotSimulator={() => openBotInspector('video01')}
         />
 
-        <main className="flex-1 p-6 overflow-y-auto max-w-7xl mx-auto w-full">
+        <main className="flex-1 p-3.5 sm:p-6 overflow-y-auto max-w-7xl mx-auto w-full min-w-0">
           {currentPath === '/dashboard' && (
             <DashboardView
               user={user}

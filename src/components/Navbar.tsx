@@ -1,6 +1,6 @@
 import React from 'react';
 import { User } from '../types.js';
-import { Link2, Bot, LogOut, Shield, KeyRound, Globe, UserCheck, AlertTriangle } from 'lucide-react';
+import { Link2, Bot, LogOut, Globe, AlertTriangle, Menu, X } from 'lucide-react';
 
 interface NavbarProps {
   user: User | null;
@@ -8,6 +8,8 @@ interface NavbarProps {
   onOpenBotSimulator: () => void;
   siteName?: string;
   siteDomain?: string;
+  onToggleMobileMenu?: () => void;
+  isMobileMenuOpen?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -15,31 +17,45 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLogout,
   onOpenBotSimulator,
   siteName = 'Smart Link OG',
-  siteDomain = 'https://sls.vnastar.com'
+  siteDomain = 'https://sls.vnastar.com',
+  onToggleMobileMenu,
+  isMobileMenuOpen = false
 }) => {
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        {/* Brand Logo & Domain */}
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-sm">
-            <Link2 className="w-4 h-4 font-extrabold" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-800 text-base tracking-tight">{siteName}</span>
-              <span className="text-[10px] bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-md font-mono flex items-center gap-1">
-                <Globe className="w-3 h-3 text-indigo-600" /> {siteDomain.replace(/^https?:\/\//, '')}
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
+        {/* Mobile Menu Button & Brand Logo */}
+        <div className="flex items-center gap-2.5">
+          {user && onToggleMobileMenu && (
+            <button
+              onClick={onToggleMobileMenu}
+              className="md:hidden p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition min-h-[44px] min-w-[44px] flex items-center justify-center"
+              aria-label="Toggle mobile menu"
+            >
+              {isMobileMenuOpen ? <X className="w-5 h-5 text-indigo-600" /> : <Menu className="w-5 h-5" />}
+            </button>
+          )}
+
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-sm shrink-0">
+              <Link2 className="w-4 h-4 font-extrabold" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-bold text-slate-800 text-sm sm:text-base tracking-tight leading-none">{siteName}</span>
+                <span className="hidden sm:inline-flex text-[10px] bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-md font-mono items-center gap-1">
+                  <Globe className="w-3 h-3 text-indigo-600" /> {siteDomain.replace(/^https?:\/\//, '')}
+                </span>
+              </div>
+              <span className="text-[10px] sm:text-[11px] text-slate-500 block truncate max-w-[200px] sm:max-w-none">
+                Rút gọn link thông minh • Tùy chỉnh OG
               </span>
             </div>
-            <span className="text-[11px] text-slate-500 block -mt-0.5">
-              Rút gọn link thông minh • Tùy chỉnh Open Graph
-            </span>
           </div>
         </div>
 
         {/* Action Controls & User Info */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* Bot Inspector Tool Launcher */}
           <button
             onClick={onOpenBotSimulator}
@@ -50,18 +66,18 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           {user && (
-            <div className="flex items-center gap-3 border-l border-slate-200 pl-3">
+            <div className="flex items-center gap-2 sm:gap-3 border-l border-slate-200 pl-2 sm:pl-3">
               {/* Force password change indicator */}
               {user.must_change_password && (
-                <span className="bg-amber-50 border border-amber-200 text-amber-700 text-xs px-2.5 py-1 rounded-lg flex items-center gap-1.5 font-medium animate-pulse">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  Yêu cầu đổi mật khẩu
+                <span className="bg-amber-50 border border-amber-200 text-amber-700 text-[11px] sm:text-xs px-2 py-1 rounded-lg flex items-center gap-1 font-medium animate-pulse">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden sm:inline">Yêu cầu </span>đổi MK
                 </span>
               )}
 
               {/* User Profile info */}
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-indigo-600 font-bold text-xs shadow-sm">
+                <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-indigo-600 font-bold text-xs shadow-sm shrink-0">
                   {user.username.charAt(0).toUpperCase()}
                 </div>
                 <div className="hidden md:block text-left">
@@ -87,7 +103,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 onClick={onLogout}
                 title="Đăng xuất"
-                className="p-2 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded-lg transition"
+                className="p-2 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded-lg transition min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <LogOut className="w-4 h-4" />
               </button>

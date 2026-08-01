@@ -51,14 +51,14 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 bg-slate-50">
-      <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl p-8 shadow-xl relative text-slate-800">
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-3.5 sm:p-6 bg-slate-50">
+      <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl p-5 sm:p-8 shadow-xl relative text-slate-800">
         {/* Header Logo */}
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-indigo-600 mx-auto flex items-center justify-center text-white shadow-md shadow-indigo-600/20 mb-3">
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-600 mx-auto flex items-center justify-center text-white shadow-md shadow-indigo-600/20 mb-3">
             <Link2 className="w-6 h-6 font-black" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{siteName}</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">{siteName}</h2>
           <p className="text-xs text-slate-500 mt-1">Đăng nhập vào hệ thống quản lý link Smart OG</p>
         </div>
 
@@ -81,7 +81,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Nhập username hoặc email..."
-                className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[44px]"
               />
             </div>
           </div>
@@ -97,16 +97,16 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Nhập mật khẩu..."
-                className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[44px]"
               />
             </div>
           </div>
 
-          <div className="pt-2 flex items-center gap-3">
+          <div className="pt-2 flex items-center gap-2.5">
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold rounded-lg transition flex items-center justify-center gap-2 shadow-sm"
+              className="flex-1 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold rounded-xl transition flex items-center justify-center gap-2 shadow-xs min-h-[44px]"
             >
               <LogIn className="w-4 h-4" />
               {loading ? 'Đang xử lý...' : 'Đăng nhập'}
@@ -114,7 +114,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
             <button
               type="button"
               onClick={() => onNavigate('/register')}
-              className="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg transition border border-slate-200"
+              className="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-xl transition border border-slate-200 min-h-[44px]"
             >
               Đăng ký
             </button>

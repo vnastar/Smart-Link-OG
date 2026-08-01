@@ -1,14 +1,24 @@
 import React from 'react';
 import { User } from '../types.js';
-import { LayoutDashboard, PlusCircle, List, KeyRound, Shield, Users, Link as LinkIcon, Settings, ScrollText, AlertOctagon } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, List, KeyRound, Shield, Users, Link as LinkIcon, Settings, ScrollText, AlertOctagon, X, Bot } from 'lucide-react';
 
 interface SidebarProps {
   currentPath: string;
   onNavigate: (path: string) => void;
   user: User | null;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
+  onOpenBotSimulator?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, user }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  currentPath,
+  onNavigate,
+  user,
+  isMobileOpen = false,
+  onCloseMobile,
+  onOpenBotSimulator
+}) => {
   if (!user) return null;
 
   const isLocked = user.must_change_password;
@@ -28,9 +38,37 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, user 
     { path: '/admin/logs', label: 'Nhật ký Visits & Logs', icon: ScrollText }
   ];
 
-  return (
-    <aside className="w-64 bg-white border-r border-slate-200 shrink-0 min-h-[calc(100vh-4rem)] p-4 flex flex-col justify-between shadow-xs">
+  const handleNavClick = (path: string) => {
+    onNavigate(path);
+    if (onCloseMobile) {
+      onCloseMobile();
+    }
+  };
+
+  const navContent = (
+    <div className="flex flex-col h-full justify-between p-4 bg-white">
       <div>
+        {/* Mobile Header in Drawer */}
+        <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 md:hidden">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-indigo-100 border border-indigo-200 flex items-center justify-center text-indigo-700 font-bold text-xs">
+              {user.username.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <div className="text-xs font-bold text-slate-800">{user.username}</div>
+              <div className="text-[10px] text-slate-500 font-mono">Limit: {user.daily_limit} link/ngày</div>
+            </div>
+          </div>
+          {onCloseMobile && (
+            <button
+              onClick={onCloseMobile}
+              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg min-h-[40px] min-w-[40px] flex items-center justify-center"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+        </div>
+
         {/* Force password change warning notice if locked */}
         {isLocked && (
           <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-start gap-2">
@@ -40,6 +78,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, user 
               Bạn cần đổi mật khẩu mặc định tại mục Đổi mật khẩu để mở khóa toàn bộ tính năng.
             </div>
           </div>
+        )}
+
+        {/* Mobile Bot Inspector launcher */}
+        {onOpenBotSimulator && (
+          <button
+            onClick={() => {
+              onOpenBotSimulator();
+              if (onCloseMobile) onCloseMobile();
+            }}
+            className="w-full mb-4 md:hidden flex items-center justify-center gap-2 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-semibold transition"
+          >
+            <Bot className="w-4 h-4 text-indigo-600" />
+            <span>Test DetectBot Simulator</span>
+          </button>
         )}
 
         {/* User Navigation Section */}
@@ -57,8 +109,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, user 
                 <button
                   key={item.path}
                   disabled={disabled}
-                  onClick={() => onNavigate(item.path)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${
+                  onClick={() => handleNavClick(item.path)}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 md:py-2 rounded-xl text-sm transition-all min-h-[44px] ${
                     active
                       ? 'bg-indigo-50 text-indigo-700 font-semibold shadow-xs'
                       : disabled
@@ -90,8 +142,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, user 
                   <button
                     key={item.path}
                     disabled={disabled}
-                    onClick={() => onNavigate(item.path)}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${
+                    onClick={() => handleNavClick(item.path)}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 md:py-2 rounded-xl text-sm transition-all min-h-[44px] ${
                       active
                         ? 'bg-purple-50 text-purple-700 font-semibold shadow-xs'
                         : disabled
@@ -120,6 +172,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, user 
           <span className="font-mono text-slate-600">sls.vnastar.com</span>
         </div>
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop Permanent Sidebar */}
+      <aside className="hidden md:block w-64 bg-white border-r border-slate-200 shrink-0 min-h-[calc(100vh-4rem)] shadow-xs">
+        {navContent}
+      </aside>
+
+      {/* Mobile Slide-Over Drawer Overlay */}
+      {isMobileOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity"
+            onClick={onCloseMobile}
+          />
+
+          {/* Drawer Content */}
+          <div className="relative w-4/5 max-w-xs bg-white h-full shadow-2xl z-10 flex flex-col">
+            {navContent}
+          </div>
+        </div>
+      )}
+    </>
   );
 };

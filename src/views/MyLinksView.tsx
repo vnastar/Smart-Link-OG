@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { User, LinkItem } from '../types.js';
-import { List, Search, Copy, Check, QrCode, Bot, Trash2, Edit3, ExternalLink, ArrowUpDown, ChevronLeft, ChevronRight, X, Save } from 'lucide-react';
+import { List, Search, Copy, Check, QrCode, Bot, Trash2, Edit3, ExternalLink, ArrowUpDown, ChevronLeft, ChevronRight, X, Save, Upload, Calendar } from 'lucide-react';
 
 interface MyLinksViewProps {
   user: User;
@@ -32,7 +32,36 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
   const [editDesc, setEditDesc] = useState('');
   const [editImage, setEditImage] = useState('');
   const [editDest, setEditDest] = useState('');
+  const [editExpiresAt, setEditExpiresAt] = useState('');
+  const [hasEditExpiration, setHasEditExpiration] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File ảnh không được vượt quá 5MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      setUploadingImage(true);
+      try {
+        const url = await api.uploadImage(base64, file.name);
+        const fullUrl = url.startsWith('/') ? `${window.location.origin}${url}` : url;
+        setEditImage(fullUrl);
+      } catch (err: any) {
+        alert(err.message || 'Upload ảnh thất bại');
+      } finally {
+        setUploadingImage(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const loadLinks = async () => {
     setLoading(true);
@@ -68,12 +97,32 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
     }
   };
 
+  const handleToggleEditExpiration = (enabled: boolean) => {
+    setHasEditExpiration(enabled);
+    if (enabled && !editExpiresAt) {
+      const d = new Date();
+      d.setDate(d.getDate() + 7);
+      const isoStr = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      setEditExpiresAt(isoStr);
+    }
+  };
+
   const startEdit = (link: LinkItem) => {
     setEditingLink(link);
     setEditTitle(link.title);
     setEditDesc(link.description);
     setEditImage(link.image);
     setEditDest(link.destination_url);
+
+    if (link.expires_at) {
+      const d = new Date(link.expires_at);
+      const isoStr = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      setEditExpiresAt(isoStr);
+      setHasEditExpiration(true);
+    } else {
+      setEditExpiresAt('');
+      setHasEditExpiration(false);
+    }
   };
 
   const saveEdit = async () => {
@@ -84,7 +133,8 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
         title: editTitle,
         description: editDesc,
         image: editImage,
-        destination_url: editDest
+        destination_url: editDest,
+        expires_at: hasEditExpiration && editExpiresAt ? editExpiresAt : null
       });
       setEditingLink(null);
       loadLinks();
@@ -110,21 +160,21 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
   const paginatedLinks = sortedLinks.slice((page - 1) * pageSize, page * pageSize);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-4">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-3.5">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <List className="w-6 h-6 text-indigo-600" />
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
+            <List className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
             Danh Sách Link Rút Gọn (My Links)
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-slate-500 mt-0.5">
             Quản lý, tìm kiếm, chỉnh sửa và theo dõi toàn bộ liên kết cá nhân
           </p>
         </div>
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div className="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
@@ -134,12 +184,12 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
               setSearch(e.target.value);
               setPage(1);
             }}
-            placeholder="Tìm kiếm theo slug, tiêu đề bài viết hoặc link gốc..."
-            className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-4 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Tìm kiếm theo slug, tiêu đề hoặc link gốc..."
+            className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[44px]"
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           <button
             onClick={() => {
               if (sortBy === 'created') {
@@ -149,7 +199,7 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
                 setSortOrder('desc');
               }
             }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition ${
+            className={`flex-1 sm:flex-none px-3 py-2 rounded-xl text-xs font-medium border flex items-center justify-center gap-1.5 transition min-h-[40px] ${
               sortBy === 'created'
                 ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
                 : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -167,7 +217,7 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
                 setSortOrder('desc');
               }
             }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition ${
+            className={`flex-1 sm:flex-none px-3 py-2 rounded-xl text-xs font-medium border flex items-center justify-center gap-1.5 transition min-h-[40px] ${
               sortBy === 'clicks'
                 ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
                 : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -178,8 +228,8 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+      {/* Table Container */}
+      <div className="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-6 shadow-xs">
         {loading ? (
           <div className="py-12 text-center text-slate-400 text-xs">Đang tải dữ liệu...</div>
         ) : paginatedLinks.length === 0 ? (
@@ -229,7 +279,20 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
                     </td>
 
                     <td className="p-3 text-slate-500 text-[11px]">
-                      {new Date(link.created_at).toLocaleDateString('vi-VN')}
+                      <div>{new Date(link.created_at).toLocaleDateString('vi-VN')}</div>
+                      {link.expires_at && (
+                        <div className="mt-1">
+                          {new Date(link.expires_at) < new Date() ? (
+                            <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200 inline-block">
+                              Đã hết hạn
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 inline-block">
+                              Hạn: {new Date(link.expires_at).toLocaleDateString('vi-VN')}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </td>
 
                     <td className="p-3 text-right space-x-1">
@@ -352,12 +415,84 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
                   URL Ảnh OpenGraph
                 </label>
-                <input
-                  type="text"
-                  value={editImage}
-                  onChange={(e) => setEditImage(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={editImage}
+                    onChange={(e) => setEditImage(e.target.value)}
+                    placeholder="Dán URL ảnh hoặc tải ảnh lên..."
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[40px]"
+                  />
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5 min-h-[38px]">
+                      <Upload className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>{uploadingImage ? 'Đang tải lên...' : 'Tải ảnh từ máy (Max 5MB)'}</span>
+                      <input
+                        type="file"
+                        accept="image/png, image/jpeg, image/webp"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+                    </label>
+                    {editImage && (
+                      <span className="text-[11px] text-emerald-600 font-medium flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
+                        <Check className="w-3 h-3" />
+                        Đã có ảnh
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Expiration Date Toggle */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <Calendar className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                    <div>
+                      <label htmlFor="toggle-edit-expiration" className="text-xs font-bold text-slate-800 cursor-pointer select-none block">
+                        Đặt ngày hết hạn
+                      </label>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        {hasEditExpiration ? 'Link sẽ tự động vô hiệu hóa sau thời gian bên dưới' : 'Bật tính năng này để đặt thời hạn hoạt động cho link'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    id="toggle-edit-expiration"
+                    type="button"
+                    role="switch"
+                    aria-checked={hasEditExpiration}
+                    onClick={() => handleToggleEditExpiration(!hasEditExpiration)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                      hasEditExpiration ? 'bg-indigo-600' : 'bg-slate-300'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                        hasEditExpiration ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {hasEditExpiration && (
+                  <div className="pt-2 border-t border-slate-200/80">
+                    <label className="block text-[11px] font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
+                      Thời gian hết hạn
+                    </label>
+                    <div className="relative">
+                      <Calendar className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="datetime-local"
+                        value={editExpiresAt}
+                        onChange={(e) => setEditExpiresAt(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[40px]"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-2 pt-2">
