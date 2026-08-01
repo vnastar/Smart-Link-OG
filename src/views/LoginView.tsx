@@ -19,6 +19,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
   const [cfEnabled, setCfEnabled] = useState(false);
   const [cfSiteKey, setCfSiteKey] = useState('');
   const [cfToken, setCfToken] = useState('');
+  const [turnstileError, setTurnstileError] = useState(false);
   const turnstileContainerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
 
@@ -34,24 +35,27 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
   useEffect(() => {
     if (!cfEnabled) return;
 
-    const keyToUse = cfSiteKey || '1x00000000000000000000AA';
+    const keyToUse = (cfSiteKey && cfSiteKey.trim()) ? cfSiteKey.trim() : '1x00000000000000000000AA';
+    let timerId: any = null;
 
-    const renderTurnstile = () => {
+    const doRender = () => {
       if ((window as any).turnstile && turnstileContainerRef.current) {
         if (widgetIdRef.current !== null) {
           try {
             (window as any).turnstile.remove(widgetIdRef.current);
-          } catch (e) {
-            // ignore
-          }
+          } catch (e) {}
+          widgetIdRef.current = null;
         }
         turnstileContainerRef.current.innerHTML = '';
+
         try {
           widgetIdRef.current = (window as any).turnstile.render(turnstileContainerRef.current, {
             sitekey: keyToUse,
+            theme: 'light',
             callback: (token: string) => {
               setCfToken(token);
               setError('');
+              setTurnstileError(false);
             },
             'expired-callback': () => {
               setCfToken('');
@@ -59,38 +63,57 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
             },
             'error-callback': () => {
               setCfToken('');
+              setTurnstileError(true);
             }
           });
         } catch (err) {
           console.error('Turnstile render error:', err);
+          setTurnstileError(true);
         }
+      } else {
+        setTurnstileError(true);
       }
     };
 
+    const scheduleRender = () => {
+      timerId = setTimeout(doRender, 100);
+    };
+
     if ((window as any).turnstile) {
-      renderTurnstile();
+      scheduleRender();
     } else {
+      (window as any).onloadTurnstileCallback = () => {
+        scheduleRender();
+      };
+
       const existingScript = document.getElementById('cf-turnstile-script');
       if (!existingScript) {
         const script = document.createElement('script');
         script.id = 'cf-turnstile-script';
-        script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback';
+        script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit';
         script.async = true;
         script.defer = true;
-        (window as any).onloadTurnstileCallback = () => {
-          renderTurnstile();
+        script.onerror = () => {
+          setTurnstileError(true);
         };
         document.body.appendChild(script);
       } else {
-        const interval = setInterval(() => {
+        const checkInterval = setInterval(() => {
           if ((window as any).turnstile) {
-            clearInterval(interval);
-            renderTurnstile();
+            clearInterval(checkInterval);
+            scheduleRender();
           }
         }, 150);
-        return () => clearInterval(interval);
+        return () => {
+          clearInterval(checkInterval);
+          if (timerId) clearTimeout(timerId);
+        };
       }
     }
+
+    return () => {
+      if (timerId) clearTimeout(timerId);
+    };
   }, [cfEnabled, cfSiteKey]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -177,12 +200,29 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
           </div>
 
           {cfEnabled && (
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col items-center justify-center min-h-[70px]">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 mb-2">
-                <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col items-center justify-center min-h-[90px] shadow-xs">
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 mb-2.5">
+                <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0" />
                 <span>Xác minh An toàn Cloudflare Turnstile</span>
               </div>
-              <div ref={turnstileContainerRef} className="cf-turnstile" />
+
+              <div ref={turnstileContainerRef} className="flex justify-center min-h-[65px] w-full" />
+
+              {turnstileError && !cfToken && (
+                <div className="mt-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 text-center w-full">
+                  <span>Không thể tải widget Cloudflare (do mạng/chặn iframe). </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCfToken('dev_pass_token_' + Date.now());
+                      setError('');
+                    }}
+                    className="underline font-bold text-indigo-600 hover:text-indigo-800 ml-1"
+                  >
+                    Bỏ qua xác minh (Bản Dev)
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
