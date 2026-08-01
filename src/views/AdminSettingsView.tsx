@@ -19,68 +19,100 @@ export const AdminSettingsView: React.FC = () => {
     api.getAdminSettings().then(setSettings).catch(console.error).finally(() => setLoading(false));
   }, []);
 
-  const renderTestWidget = () => {
-    if (!settings) return;
+  useEffect(() => {
+    if (!settings || !settings.cloudflare_turnstile_enable) return;
+
     const siteKeyToTest = (settings.cloudflare_site_key && settings.cloudflare_site_key.trim())
       ? settings.cloudflare_site_key.trim()
       : '1x00000000000000000000AA';
 
-    if ((window as any).turnstile && turnstileTestRef.current) {
-      if (turnstileTestWidgetId.current !== null) {
-        try {
-          (window as any).turnstile.remove(turnstileTestWidgetId.current);
-        } catch (e) {}
-        turnstileTestWidgetId.current = null;
-      }
-      turnstileTestRef.current.innerHTML = '';
-      try {
-        turnstileTestWidgetId.current = (window as any).turnstile.render(turnstileTestRef.current, {
-          sitekey: siteKeyToTest,
-          theme: 'light',
-          callback: (token: string) => {
-            setTestCfToken(token);
-            setTestStatus({ type: null, msg: '' });
-          },
-          'expired-callback': () => {
-            setTestCfToken('');
-            setTestStatus({ type: 'error', msg: 'Mã token đã hết hạn, vui lòng tích chọn lại.' });
-          },
-          'error-callback': () => {
-            setTestCfToken('');
-            setTestStatus({ type: 'error', msg: 'Lỗi tải widget Turnstile với Site Key này. Vui lòng kiểm tra lại Site Key.' });
-          }
-        });
-      } catch (e: any) {
-        setTestStatus({ type: 'error', msg: 'Không thể tải widget: ' + (e.message || e) });
-      }
-    }
-  };
+    let isCancelled = false;
+    let attemptCount = 0;
+    let pollInterval: any = null;
 
-  useEffect(() => {
-    if (!settings) return;
-    const timer = setTimeout(() => {
-      if ((window as any).turnstile) {
-        renderTestWidget();
-      } else {
-        const existingScript = document.getElementById('cf-turnstile-script');
-        if (!existingScript) {
-          const script = document.createElement('script');
-          script.id = 'cf-turnstile-script';
-          script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
-          script.async = true;
-          script.onload = () => renderTestWidget();
-          document.body.appendChild(script);
-        } else {
-          const check = setInterval(() => {
-            if ((window as any).turnstile) {
-              clearInterval(check);
-              renderTestWidget();
+    const renderTestWidget = () => {
+      if (isCancelled) return;
+      attemptCount++;
+
+      const container = turnstileTestRef.current;
+      const turnstile = (window as any).turnstile;
+
+      if (turnstile && container) {
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          pollInterval = null;
+        }
+
+        try {
+          if (turnstileTestWidgetId.current !== null) {
+            try {
+              turnstile.remove(turnstileTestWidgetId.current);
+            } catch (e) {}
+            turnstileTestWidgetId.current = null;
+          }
+          container.innerHTML = '';
+
+          turnstileTestWidgetId.current = turnstile.render(container, {
+            sitekey: siteKeyToTest,
+            theme: 'light',
+            callback: (token: string) => {
+              if (!isCancelled) {
+                setTestCfToken(token);
+                setTestStatus({ type: null, msg: '' });
+              }
+            },
+            'expired-callback': () => {
+              if (!isCancelled) {
+                setTestCfToken('');
+                setTestStatus({ type: 'error', msg: 'Mã token đã hết hạn, vui lòng tích chọn lại.' });
+              }
+            },
+            'error-callback': () => {
+              if (!isCancelled) {
+                setTestCfToken('');
+                setTestStatus({ type: 'error', msg: 'Lỗi tải widget Turnstile với Site Key này. Vui lòng kiểm tra lại Site Key.' });
+              }
             }
-          }, 150);
+          });
+        } catch (e: any) {
+          console.error('Test widget render exception:', e);
+          if (attemptCount > 20 && !isCancelled) {
+            setTestStatus({ type: 'error', msg: 'Không thể tải widget: ' + (e.message || e) });
+          }
+        }
+      } else {
+        if (attemptCount > 40 && !isCancelled) {
+          if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+          }
+          setTestStatus({ type: 'error', msg: 'Không thể tải thư viện Cloudflare Turnstile. Vui lòng kiểm tra kết nối mạng.' });
         }
       }
-    }, 100);
-    return () => clearTimeout(timer);
+    };
+
+    const existingScript = document.getElementById('cf-turnstile-script');
+    if (!existingScript) {
+      const script = document.createElement('script');
+      script.id = 'cf-turnstile-script';
+      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+      script.async = true;
+      script.defer = true;
+      script.onerror = () => {
+        if (!isCancelled) {
+          setTestStatus({ type: 'error', msg: 'Không thể tải script Cloudflare Turnstile.' });
+        }
+      };
+      document.body.appendChild(script);
+    }
+
+    pollInterval = setInterval(renderTestWidget, 150);
+    renderTestWidget();
+
+    return () => {
+      isCancelled = true;
+      if (pollInterval) clearInterval(pollInterval);
+    };
   }, [settings?.cloudflare_site_key, settings?.cloudflare_turnstile_enable]);
 
   const handleRunTest = async () => {

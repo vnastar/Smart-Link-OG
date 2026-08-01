@@ -36,83 +36,92 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
     if (!cfEnabled) return;
 
     const keyToUse = (cfSiteKey && cfSiteKey.trim()) ? cfSiteKey.trim() : '1x00000000000000000000AA';
-    let timerId: any = null;
+    let isCancelled = false;
+    let attemptCount = 0;
+    let pollInterval: any = null;
 
-    const doRender = () => {
-      if ((window as any).turnstile && turnstileContainerRef.current) {
-        if (widgetIdRef.current !== null) {
-          try {
-            (window as any).turnstile.remove(widgetIdRef.current);
-          } catch (e) {}
-          widgetIdRef.current = null;
+    const renderWidget = () => {
+      if (isCancelled) return;
+      attemptCount++;
+
+      const container = turnstileContainerRef.current;
+      const turnstile = (window as any).turnstile;
+
+      if (turnstile && container) {
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          pollInterval = null;
         }
-        turnstileContainerRef.current.innerHTML = '';
 
         try {
-          widgetIdRef.current = (window as any).turnstile.render(turnstileContainerRef.current, {
+          if (widgetIdRef.current !== null) {
+            try {
+              turnstile.remove(widgetIdRef.current);
+            } catch (e) {}
+            widgetIdRef.current = null;
+          }
+          container.innerHTML = '';
+
+          widgetIdRef.current = turnstile.render(container, {
             sitekey: keyToUse,
             theme: 'light',
             callback: (token: string) => {
-              setCfToken(token);
-              setError('');
-              setTurnstileError(false);
+              if (!isCancelled) {
+                setCfToken(token);
+                setError('');
+                setTurnstileError(false);
+              }
             },
             'expired-callback': () => {
-              setCfToken('');
-              setError('Mã xác minh Cloudflare đã hết hạn, vui lòng tích chọn lại.');
+              if (!isCancelled) {
+                setCfToken('');
+                setError('Mã xác minh Cloudflare đã hết hạn, vui lòng tích chọn lại.');
+              }
             },
             'error-callback': () => {
-              setCfToken('');
-              setTurnstileError(true);
+              if (!isCancelled) {
+                setCfToken('');
+                setTurnstileError(true);
+              }
             }
           });
+          setTurnstileError(false);
         } catch (err) {
-          console.error('Turnstile render error:', err);
-          setTurnstileError(true);
+          console.error('Turnstile render exception:', err);
+          if (attemptCount > 20 && !isCancelled) {
+            setTurnstileError(true);
+          }
         }
       } else {
-        setTurnstileError(true);
-      }
-    };
-
-    const scheduleRender = () => {
-      timerId = setTimeout(doRender, 100);
-    };
-
-    if ((window as any).turnstile) {
-      scheduleRender();
-    } else {
-      (window as any).onloadTurnstileCallback = () => {
-        scheduleRender();
-      };
-
-      const existingScript = document.getElementById('cf-turnstile-script');
-      if (!existingScript) {
-        const script = document.createElement('script');
-        script.id = 'cf-turnstile-script';
-        script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit';
-        script.async = true;
-        script.defer = true;
-        script.onerror = () => {
-          setTurnstileError(true);
-        };
-        document.body.appendChild(script);
-      } else {
-        const checkInterval = setInterval(() => {
-          if ((window as any).turnstile) {
-            clearInterval(checkInterval);
-            scheduleRender();
+        if (attemptCount > 40 && !isCancelled) {
+          if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
           }
-        }, 150);
-        return () => {
-          clearInterval(checkInterval);
-          if (timerId) clearTimeout(timerId);
-        };
+          setTurnstileError(true);
+        }
       }
+    };
+
+    const existingScript = document.getElementById('cf-turnstile-script');
+    if (!existingScript) {
+      const script = document.createElement('script');
+      script.id = 'cf-turnstile-script';
+      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+      script.async = true;
+      script.defer = true;
+      script.onerror = () => {
+        if (!isCancelled) setTurnstileError(true);
+      };
+      document.body.appendChild(script);
     }
 
+    pollInterval = setInterval(renderWidget, 150);
+    renderWidget();
+
     return () => {
-      if (timerId) clearTimeout(timerId);
+      isCancelled = true;
+      if (pollInterval) clearInterval(pollInterval);
     };
   }, [cfEnabled, cfSiteKey]);
 
