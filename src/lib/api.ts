@@ -236,6 +236,12 @@ export const api = {
     return this.request('/api/admin/stats');
   },
 
+  async getAdminLinks(search?: string): Promise<LinkItem[]> {
+    const path = search ? `/api/admin/links?search=${encodeURIComponent(search)}` : '/api/admin/links';
+    const data = await this.request(path);
+    return data.links;
+  },
+
   async getAdminUsers(): Promise<User[]> {
     const data = await this.request('/api/admin/users');
     return data.users;

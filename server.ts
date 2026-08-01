@@ -173,15 +173,25 @@ app.get('/api/user/stats', requireAuth, (req: Request, res: Response) => {
 
 app.get('/api/links', requireAuth, (req: Request, res: Response) => {
   const user = (req as any).user;
-  let links = user.role === 'admin' ? db.getLinks() : db.getLinksByUserId(user.id);
+  const users = db.getUsers();
+  const userMap = new Map(users.map(u => [u.id, u.username]));
+
+  let rawLinks = user.role === 'admin' ? db.getLinks() : db.getLinksByUserId(user.id);
+  let links = rawLinks.map(link => ({
+    ...link,
+    user_name: link.user_name || userMap.get(link.user_id) || link.user_id
+  }));
 
   const search = req.query.search as string;
   if (search) {
     const s = search.toLowerCase();
     links = links.filter(l =>
       l.slug.toLowerCase().includes(s) ||
-      l.title.toLowerCase().includes(s) ||
-      l.destination_url.toLowerCase().includes(s)
+      (l.title && l.title.toLowerCase().includes(s)) ||
+      (l.description && l.description.toLowerCase().includes(s)) ||
+      (l.destination_url && l.destination_url.toLowerCase().includes(s)) ||
+      (l.user_name && l.user_name.toLowerCase().includes(s)) ||
+      (l.user_id && l.user_id.toLowerCase().includes(s))
     );
   }
 
@@ -387,6 +397,31 @@ app.get('/api/admin/stats', requireAdmin, (req: Request, res: Response) => {
     total_clicks: totalClicks,
     new_users_today: newUsersToday
   });
+});
+
+app.get('/api/admin/links', requireAdmin, (req: Request, res: Response) => {
+  const users = db.getUsers();
+  const userMap = new Map(users.map(u => [u.id, u.username]));
+
+  let links = db.getLinks().map(link => ({
+    ...link,
+    user_name: link.user_name || userMap.get(link.user_id) || link.user_id
+  }));
+
+  const search = req.query.search as string;
+  if (search) {
+    const s = search.toLowerCase();
+    links = links.filter(l =>
+      l.slug.toLowerCase().includes(s) ||
+      (l.title && l.title.toLowerCase().includes(s)) ||
+      (l.description && l.description.toLowerCase().includes(s)) ||
+      (l.destination_url && l.destination_url.toLowerCase().includes(s)) ||
+      (l.user_name && l.user_name.toLowerCase().includes(s)) ||
+      (l.user_id && l.user_id.toLowerCase().includes(s))
+    );
+  }
+
+  return res.json({ links });
 });
 
 app.get('/api/admin/users', requireAdmin, (req: Request, res: Response) => {
