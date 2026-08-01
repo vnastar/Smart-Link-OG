@@ -42,29 +42,27 @@ export const api = {
       'Content-Type': 'application/json'
     };
     if (token) {
-      h['Authorization'] = `Bearer ${token}`;
+      const safeToken = String(token).replace(/[^\x21-\x7E]/g, '');
+      if (safeToken) {
+        h['Authorization'] = `Bearer ${safeToken}`;
+      }
     }
     return h;
   },
 
   // Auth
   async login(username: string, password: string): Promise<{ token: string; user: User }> {
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username.trim(), password })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Đăng nhập thất bại');
-      this.setToken(data.token);
-      return data;
-    } catch (err: any) {
-      if (err instanceof DOMException || (err.message && err.message.toLowerCase().includes('pattern'))) {
-        throw new Error('Lỗi cấu trúc dữ liệu đăng nhập. Vui lòng thử lại.');
-      }
-      throw err;
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: username.trim(), password })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
     }
+    this.setToken(data.token);
+    return data;
   },
 
   async register(username: string, email: string, password: string): Promise<{ token: string; user: User }> {
