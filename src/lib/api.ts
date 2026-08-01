@@ -52,28 +52,37 @@ export const api = {
 
   // Auth
   async login(username: string, password: string): Promise<{ token: string; user: User }> {
+    const cleanUsername = String(username || '').trim();
+    const cleanPassword = String(password || '');
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: username.trim(), password })
+      body: JSON.stringify({ username: cleanUsername, password: cleanPassword })
     });
     const data = await res.json();
     if (!res.ok) {
       throw new Error(data.error || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
     }
-    this.setToken(data.token);
+    if (data.token) {
+      this.setToken(data.token);
+    }
     return data;
   },
 
   async register(username: string, email: string, password: string): Promise<{ token: string; user: User }> {
+    const cleanUsername = String(username || '').trim();
+    const cleanEmail = String(email || '').trim();
+    const cleanPassword = String(password || '');
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, email, password })
+      body: JSON.stringify({ username: cleanUsername, email: cleanEmail, password: cleanPassword })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Đăng ký thất bại');
-    this.setToken(data.token);
+    if (data.token) {
+      this.setToken(data.token);
+    }
     return data;
   },
 
