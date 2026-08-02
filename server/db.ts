@@ -52,7 +52,10 @@ const DEFAULT_SETTINGS: SiteSettings = {
   bot_list: DEFAULT_BOT_LIST,
   cloudflare_turnstile_enable: false,
   cloudflare_site_key: '',
-  cloudflare_secret_key: ''
+  cloudflare_secret_key: '',
+  default_expiration_days: 0,
+  allow_unlimited_expiration: true,
+  max_expiration_days: 0
 };
 
 const SEED_DATA: DatabaseSchema = {

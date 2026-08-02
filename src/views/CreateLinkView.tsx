@@ -46,13 +46,35 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
 
   const [createdToday, setCreatedToday] = useState(0);
   const [dailyLimit, setDailyLimit] = useState(user.daily_limit);
+  const [siteConfig, setSiteConfig] = useState<{
+    default_expiration_days?: number;
+    allow_unlimited_expiration?: boolean;
+    max_expiration_days?: number;
+  }>({});
 
-  // Check daily limit on load
+  // Fetch site config and user stats on load
   useEffect(() => {
     api.getUserStats().then(s => {
       setCreatedToday(s.created_today);
       setDailyLimit(s.daily_limit);
     }).catch(err => console.error(err));
+
+    api.getPublicConfig().then(cfg => {
+      setSiteConfig(cfg);
+      if (cfg.default_expiration_days && cfg.default_expiration_days > 0) {
+        setHasExpiration(true);
+        const d = new Date();
+        d.setDate(d.getDate() + cfg.default_expiration_days);
+        const isoStr = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        setExpiresAt(isoStr);
+      } else if (cfg.allow_unlimited_expiration === false) {
+        setHasExpiration(true);
+        const d = new Date();
+        d.setDate(d.getDate() + 30);
+        const isoStr = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        setExpiresAt(isoStr);
+      }
+    }).catch(console.error);
   }, []);
 
   const limitReached = createdToday >= dailyLimit;
@@ -486,8 +508,29 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
                 )}
               </div>
 
-              {/* Expiration Date Toggle */}
+              {/* Expiration Date Toggle & Admin Rules */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-3">
+                {/* Notice Badge if Admin Configured Rules */}
+                {(siteConfig.default_expiration_days! > 0 || siteConfig.allow_unlimited_expiration === false || siteConfig.max_expiration_days! > 0) && (
+                  <div className="p-2.5 bg-indigo-50 border border-indigo-200 rounded-lg text-indigo-900 text-xs space-y-1">
+                    <p className="font-bold flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                      Chính sách thời hạn Link từ Hệ Thống (Admin Policy)
+                    </p>
+                    <ul className="text-[11px] text-indigo-800 list-disc list-inside space-y-0.5">
+                      {siteConfig.default_expiration_days! > 0 && (
+                        <li>Mặc định link hết hạn sau <strong>{siteConfig.default_expiration_days} ngày</strong>.</li>
+                      )}
+                      {siteConfig.allow_unlimited_expiration === false && (
+                        <li>Admin yêu cầu tất cả liên kết <strong>bắt buộc phải có ngày hết hạn</strong> (không cho vĩnh viễn).</li>
+                      )}
+                      {siteConfig.max_expiration_days! > 0 && (
+                        <li>Thời gian hết hạn tối đa được chọn: <strong>{siteConfig.max_expiration_days} ngày</strong>.</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-start gap-2.5">
                     <Calendar className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
@@ -506,8 +549,14 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
                     type="button"
                     role="switch"
                     aria-checked={hasExpiration}
-                    onClick={() => handleToggleExpiration(!hasExpiration)}
+                    disabled={siteConfig.allow_unlimited_expiration === false}
+                    onClick={() => {
+                      if (siteConfig.allow_unlimited_expiration === false) return;
+                      handleToggleExpiration(!hasExpiration);
+                    }}
                     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                      siteConfig.allow_unlimited_expiration === false ? 'opacity-60 cursor-not-allowed' : ''
+                    } ${
                       hasExpiration ? 'bg-indigo-600' : 'bg-slate-300'
                     }`}
                   >
@@ -530,6 +579,11 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
                         type="datetime-local"
                         value={expiresAt}
                         onChange={(e) => setExpiresAt(e.target.value)}
+                        max={
+                          siteConfig.max_expiration_days! > 0
+                            ? new Date(Date.now() + siteConfig.max_expiration_days! * 24 * 60 * 60 * 1000 - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+                            : undefined
+                        }
                         className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[44px]"
                       />
                     </div>

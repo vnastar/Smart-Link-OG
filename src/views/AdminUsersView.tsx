@@ -1,12 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { User, UserRole, UserStatus } from '../types.js';
-import { Users, Search, KeyRound, Shield, Ban, CheckCircle2, Trash2, Edit3, Save, X, AlertTriangle } from 'lucide-react';
+import { Users, Search, KeyRound, Shield, Ban, CheckCircle2, Trash2, Edit3, Save, X, UserPlus, Lock, Mail, UserCheck } from 'lucide-react';
 
 export const AdminUsersView: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+
+  // Create User modal state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newRole, setNewRole] = useState<UserRole>('user');
+  const [newLimit, setNewLimit] = useState(10);
+  const [newStatus, setNewStatus] = useState<UserStatus>('active');
+  const [newMustChangePwd, setNewMustChangePwd] = useState(true);
+  const [creating, setCreating] = useState(false);
 
   // Editing User Limit / Role modal
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -80,6 +91,42 @@ export const AdminUsersView: React.FC = () => {
     }
   };
 
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUsername.trim() || !newEmail.trim() || !newPassword.trim()) {
+      alert('Vui lòng điền đầy đủ Tên đăng nhập, Email và Mật khẩu');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const res = await api.createAdminUser({
+        username: newUsername.trim(),
+        email: newEmail.trim(),
+        password: newPassword.trim(),
+        role: newRole,
+        daily_limit: newLimit,
+        status: newStatus,
+        must_change_password: newMustChangePwd
+      });
+
+      alert(res.message || 'Tạo người dùng thành công!');
+      setShowCreateModal(false);
+      setNewUsername('');
+      setNewEmail('');
+      setNewPassword('');
+      setNewRole('user');
+      setNewLimit(10);
+      setNewStatus('active');
+      setNewMustChangePwd(true);
+      loadUsers();
+    } catch (err: any) {
+      alert(err.message || 'Tạo tài khoản người dùng thất bại');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const filteredUsers = users.filter(u =>
     u.username.toLowerCase().includes(search.toLowerCase()) ||
     u.email.toLowerCase().includes(search.toLowerCase())
@@ -94,9 +141,17 @@ export const AdminUsersView: React.FC = () => {
             Quản Lý Người Dùng (User Management)
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Quản lý tài khoản, thay đổi quyền Admin/User, chỉnh sửa Daily Limit và Reset Mật khẩu
+            Tạo user mới, quản lý tài khoản, thay đổi quyền Admin/User, chỉnh sửa Daily Limit và Reset Mật khẩu
           </p>
         </div>
+
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm transition shrink-0"
+        >
+          <UserPlus className="w-4 h-4" />
+          <span>Tạo User Mới</span>
+        </button>
       </div>
 
       {/* Search Bar */}
@@ -287,6 +342,168 @@ export const AdminUsersView: React.FC = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Create User Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative text-slate-800">
+            <button
+              onClick={() => setShowCreateModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="font-bold text-lg text-slate-900 mb-1 flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-indigo-600" />
+              Tạo Tài Khoản Người Dùng Mới
+            </h3>
+            <p className="text-xs text-slate-500 mb-4">
+              Nhập đầy đủ thông tin để cấp tài khoản mới cho nhân viên hoặc người dùng
+            </p>
+
+            <form onSubmit={handleCreateUser} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Username */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                    Tên Đăng Nhập <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <UserCheck className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      value={newUsername}
+                      onChange={(e) => setNewUsername(e.target.value)}
+                      placeholder="vd: nguyenvana"
+                      className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                    Email <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="email"
+                      required
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      placeholder="vd: user@example.com"
+                      className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                  Mật Khẩu Ban Đầu <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Mật khẩu khởi tạo..."
+                    className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Role */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                    Phân Quyền (Role)
+                  </label>
+                  <select
+                    value={newRole}
+                    onChange={(e) => setNewRole(e.target.value as UserRole)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="user">User (Thành viên)</option>
+                    <option value="admin">Admin (Quản trị)</option>
+                  </select>
+                </div>
+
+                {/* Limit */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                    Daily Limit
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="99999"
+                    value={newLimit}
+                    onChange={(e) => setNewLimit(parseInt(e.target.value, 10) || 10)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                    Trạng Thái
+                  </label>
+                  <select
+                    value={newStatus}
+                    onChange={(e) => setNewStatus(e.target.value as UserStatus)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="active">Active (Hoạt động)</option>
+                    <option value="blocked">Blocked (Khóa)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Force password change toggle */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                <label className="flex items-center gap-2.5 text-xs text-slate-700 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={newMustChangePwd}
+                    onChange={(e) => setNewMustChangePwd(e.target.checked)}
+                    className="accent-indigo-600 w-4 h-4 cursor-pointer rounded"
+                  />
+                  <div>
+                    <span className="font-semibold block">Bắt buộc đổi mật khẩu ở lần đăng nhập đầu tiên</span>
+                    <span className="text-[11px] text-slate-500 block">
+                      Yêu cầu người dùng tự đổi mật khẩu mới ngay khi đăng nhập
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm transition"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>{creating ? 'Đang khởi tạo...' : 'Tạo Tài Khoản'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

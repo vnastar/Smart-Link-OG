@@ -45,6 +45,9 @@ export interface SiteSettings {
   cloudflare_turnstile_enable?: boolean;
   cloudflare_site_key?: string;
   cloudflare_secret_key?: string;
+  default_expiration_days?: number;
+  allow_unlimited_expiration?: boolean;
+  max_expiration_days?: number;
 }
 
 export interface VisitLog {

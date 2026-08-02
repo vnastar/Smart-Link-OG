@@ -303,6 +303,39 @@ app.post('/api/links', requireAuth, (req: Request, res: Response) => {
     destination_url = 'https://' + destination_url;
   }
 
+  // Handle Admin Expiration Policy Settings
+  const settings = db.getSettings();
+  let finalExpiresAt: string | null = expires_at || null;
+
+  // Check if admin disallows unlimited link expiration
+  if (!finalExpiresAt && settings.allow_unlimited_expiration === false) {
+    if (settings.default_expiration_days && settings.default_expiration_days > 0) {
+      const expDate = new Date();
+      expDate.setDate(expDate.getDate() + settings.default_expiration_days);
+      finalExpiresAt = expDate.toISOString();
+    } else {
+      return res.status(400).json({ error: 'Quản trị viên yêu cầu phải cài đặt thời gian hết hạn cho liên kết (Không cho phép vĩnh viễn).' });
+    }
+  }
+
+  // If user didn't specify an expiration, but admin set a default_expiration_days > 0
+  if (!finalExpiresAt && settings.default_expiration_days && settings.default_expiration_days > 0) {
+    const expDate = new Date();
+    expDate.setDate(expDate.getDate() + settings.default_expiration_days);
+    finalExpiresAt = expDate.toISOString();
+  }
+
+  // Check max_expiration_days constraint if user specified a date
+  if (finalExpiresAt && settings.max_expiration_days && settings.max_expiration_days > 0) {
+    const maxAllowedMs = Date.now() + settings.max_expiration_days * 24 * 60 * 60 * 1000;
+    const userExpMs = new Date(finalExpiresAt).getTime();
+    if (userExpMs > maxAllowedMs + 60000) {
+      return res.status(400).json({
+        error: `Thời gian hết hạn tối đa được cho phép là ${settings.max_expiration_days} ngày kể từ hôm nay.`
+      });
+    }
+  }
+
   // Generate random 6-character slug if empty
   if (!slug || slug.trim() === '') {
     slug = db.generateRandomSlug(6);
@@ -325,7 +358,7 @@ app.post('/api/links', requireAuth, (req: Request, res: Response) => {
     og_url: og_url || '',
     og_type: og_type || 'website',
     og_site_name: og_site_name || '',
-    expires_at: expires_at || null
+    expires_at: finalExpiresAt
   });
 
   db.addLog(user.id, 'CREATE_LINK', `Tạo link mới: /${slug}`, req.ip || '127.0.0.1');
@@ -386,8 +419,9 @@ app.delete('/api/links/:id', requireAuth, (req: Request, res: Response) => {
 
 // File upload endpoint (Module 5)
 app.post('/api/upload', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user;
   const settings = db.getSettings();
-  if (!settings.upload_enable) {
+  if (user?.role !== 'admin' && !settings.upload_enable) {
     return res.status(403).json({ error: 'Hệ thống đã tắt chức năng upload ảnh' });
   }
 
@@ -397,14 +431,27 @@ app.post('/api/upload', requireAuth, (req: Request, res: Response) => {
   }
 
   try {
-    const base64Data = image_base64.replace(/^data:image\/\w+;base64,/, '');
+    const base64Data = image_base64.replace(/^data:image\/\w+;base64,/, '').replace(/^data:image\/x-icon;base64,/, '').replace(/^data:image\/vnd\.microsoft\.icon;base64,/, '').replace(/^data:image\/svg\+xml;base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
 
     if (buffer.length > 5 * 1024 * 1024) {
       return res.status(400).json({ error: 'Kích thước file vượt quá giới hạn 5MB' });
     }
 
-    const uniqueName = `img_${Date.now()}_${Math.random().toString(36).substr(2, 6)}.webp`;
+    let ext = 'webp';
+    if (image_base64.startsWith('data:image/x-icon') || image_base64.startsWith('data:image/vnd.microsoft.icon') || (file_name && file_name.endsWith('.ico'))) {
+      ext = 'ico';
+    } else if (image_base64.startsWith('data:image/png')) {
+      ext = 'png';
+    } else if (image_base64.startsWith('data:image/svg+xml')) {
+      ext = 'svg';
+    } else if (image_base64.startsWith('data:image/jpeg') || image_base64.startsWith('data:image/jpg')) {
+      ext = 'jpg';
+    } else if (image_base64.startsWith('data:image/gif')) {
+      ext = 'gif';
+    }
+
+    const uniqueName = `img_${Date.now()}_${Math.random().toString(36).substr(2, 6)}.${ext}`;
     const targetPath = path.join(uploadsDir, uniqueName);
 
     fs.writeFileSync(targetPath, buffer);
@@ -569,6 +616,38 @@ app.get('/api/admin/users', requireAdmin, (req: Request, res: Response) => {
   return res.json({ users });
 });
 
+app.post('/api/admin/users', requireAdmin, (req: Request, res: Response) => {
+  const { username, email, password, role, daily_limit, status, must_change_password } = req.body;
+
+  if (!username || !email || !password) {
+    return res.status(400).json({ error: 'Vui lòng điền đầy đủ Tên đăng nhập, Email và Mật khẩu' });
+  }
+
+  const existingUsername = db.getUserByUsername(username);
+  if (existingUsername) {
+    return res.status(400).json({ error: 'Tên đăng nhập đã tồn tại trong hệ thống' });
+  }
+
+  const existingEmail = db.getUserByEmail(email);
+  if (existingEmail) {
+    return res.status(400).json({ error: 'Email này đã được sử dụng bởi tài khoản khác' });
+  }
+
+  const newUser = db.createUser({
+    username: username.trim(),
+    email: email.trim(),
+    password_hash: password,
+    role: role === 'admin' ? 'admin' : 'user',
+    daily_limit: typeof daily_limit === 'number' ? daily_limit : parseInt(daily_limit || '10', 10),
+    status: status === 'blocked' ? 'blocked' : 'active',
+    must_change_password: must_change_password !== undefined ? !!must_change_password : true
+  });
+
+  db.addLog((req as any).user.id, 'ADMIN_CREATE_USER', `Tạo tài khoản mới: ${newUser.username} (${newUser.email})`, req.ip || '127.0.0.1');
+
+  return res.json({ message: 'Tạo tài khoản người dùng thành công', user: newUser });
+});
+
 app.put('/api/admin/users/:id', requireAdmin, (req: Request, res: Response) => {
   const userId = req.params.id;
   const { role, daily_limit, status, must_change_password } = req.body;
@@ -694,7 +773,10 @@ app.get('/api/public/config', (req: Request, res: Response) => {
     logo: settings.logo,
     favicon: settings.favicon,
     cloudflare_turnstile_enable: settings.cloudflare_turnstile_enable ?? false,
-    cloudflare_site_key: settings.cloudflare_site_key || ''
+    cloudflare_site_key: settings.cloudflare_site_key || '',
+    default_expiration_days: settings.default_expiration_days ?? 0,
+    allow_unlimited_expiration: settings.allow_unlimited_expiration ?? true,
+    max_expiration_days: settings.max_expiration_days ?? 0
   });
 });
 
@@ -708,7 +790,10 @@ app.get('/api/public-settings', (req: Request, res: Response) => {
     logo: settings.logo,
     favicon: settings.favicon,
     cloudflare_turnstile_enable: settings.cloudflare_turnstile_enable ?? false,
-    cloudflare_site_key: settings.cloudflare_site_key || ''
+    cloudflare_site_key: settings.cloudflare_site_key || '',
+    default_expiration_days: settings.default_expiration_days ?? 0,
+    allow_unlimited_expiration: settings.allow_unlimited_expiration ?? true,
+    max_expiration_days: settings.max_expiration_days ?? 0
   });
 });
 

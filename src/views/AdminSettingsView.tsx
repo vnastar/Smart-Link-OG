@@ -1,13 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api.js';
 import { SiteSettings } from '../types.js';
-import { Settings, Save, CheckCircle2, Globe, Shield, Bot, Code, Sliders, ShieldCheck, Key, Sparkles, RefreshCw, AlertCircle } from 'lucide-react';
+import { Settings, Save, CheckCircle2, Globe, Shield, Bot, Code, Sliders, ShieldCheck, Key, Sparkles, RefreshCw, AlertCircle, Clock, Upload, Image as ImageIcon, X, Loader2, Trash2, Check, FileImage } from 'lucide-react';
 
 export const AdminSettingsView: React.FC = () => {
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState('');
+
+  // Image Upload States
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingFavicon, setUploadingFavicon] = useState(false);
+  const [logoDragActive, setLogoDragActive] = useState(false);
+  const [faviconDragActive, setFaviconDragActive] = useState(false);
 
   // Turnstile Test States
   const [testCfToken, setTestCfToken] = useState('');
@@ -145,6 +151,49 @@ export const AdminSettingsView: React.FC = () => {
     setTestStatus({ type: 'success', msg: 'Đã điền Cặp Key thử nghiệm chuẩn từ Cloudflare. Hãy bấm kiểm tra captcha bên dưới.' });
   };
 
+  const processImageUpload = async (file: File, target: 'logo' | 'favicon') => {
+    if (!settings) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Kích thước ảnh không được vượt quá 5MB');
+      return;
+    }
+
+    const setUploading = target === 'logo' ? setUploadingLogo : setUploadingFavicon;
+    setUploading(true);
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64 = e.target?.result as string;
+        if (!base64) {
+          alert('Không thể đọc dữ liệu file ảnh');
+          setUploading(false);
+          return;
+        }
+        try {
+          const uploadedUrl = await api.uploadImage(base64, file.name);
+          if (target === 'logo') {
+            setSettings({ ...settings, logo: uploadedUrl });
+          } else {
+            setSettings({ ...settings, favicon: uploadedUrl });
+          }
+        } catch (err: any) {
+          alert(err.message || 'Lỗi khi tải ảnh lên server');
+        } finally {
+          setUploading(false);
+        }
+      };
+      reader.onerror = () => {
+        alert('Lỗi đọc file từ thiết bị');
+        setUploading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      alert('Có lỗi xảy ra: ' + (err.message || err));
+      setUploading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!settings) return;
@@ -233,29 +282,181 @@ export const AdminSettingsView: React.FC = () => {
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
-                Logo URL
-              </label>
+            {/* Logo Upload & Preview */}
+            <div className="md:col-span-1 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Logo Website
+                </label>
+                {settings.logo && (
+                  <button
+                    type="button"
+                    onClick={() => setSettings({ ...settings, logo: '' })}
+                    className="text-[11px] text-red-500 hover:text-red-700 flex items-center gap-1 font-medium transition"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>Xóa Logo</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Upload Drag & Drop Box */}
+              <div
+                onDragOver={(e) => { e.preventDefault(); setLogoDragActive(true); }}
+                onDragLeave={() => setLogoDragActive(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setLogoDragActive(false);
+                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    processImageUpload(e.dataTransfer.files[0], 'logo');
+                  }
+                }}
+                className={`border-2 border-dashed rounded-xl p-3.5 transition flex flex-col items-center justify-center text-center ${
+                  logoDragActive ? 'border-indigo-500 bg-indigo-50/50' : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50'
+                }`}
+              >
+                {settings.logo ? (
+                  <div className="w-full flex flex-col items-center gap-2">
+                    <div className="h-14 max-w-full flex items-center justify-center p-2 bg-white rounded-lg border border-slate-200 shadow-2xs">
+                      <img
+                        src={settings.logo}
+                        alt="Logo preview"
+                        className="max-h-10 object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                    </div>
+                    <span className="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
+                      <Check className="w-3 h-3" /> Đã có ảnh Logo
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-1.5 py-1">
+                    <div className="w-9 h-9 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
+                      {uploadingLogo ? <Loader2 className="w-5 h-5 animate-spin" /> : <FileImage className="w-5 h-5" />}
+                    </div>
+                    <p className="text-xs text-slate-600 font-medium">Kéo thả hình ảnh Logo vào đây</p>
+                    <p className="text-[10px] text-slate-400">Hỗ trợ PNG, SVG, WEBP, JPG (Max 5MB)</p>
+                  </div>
+                )}
+
+                <div className="mt-2.5 flex items-center gap-2 w-full">
+                  <label className="flex-1 cursor-pointer bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 py-1.5 px-3 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5 shadow-2xs">
+                    {uploadingLogo ? <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" /> : <Upload className="w-3.5 h-3.5 text-indigo-600" />}
+                    <span>{uploadingLogo ? 'Đang tải lên...' : 'Tải Ảnh Logo Lên'}</span>
+                    <input
+                      type="file"
+                      accept="image/png, image/jpeg, image/webp, image/svg+xml"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          processImageUpload(e.target.files[0], 'logo');
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Direct URL Input fallback */}
               <input
                 type="text"
                 value={settings.logo}
                 onChange={(e) => setSettings({ ...settings, logo: e.target.value })}
-                placeholder="https://example.com/logo.png"
-                className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Hoặc dán trực tiếp URL Logo (https://...)"
+                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
-                Favicon URL
-              </label>
+            {/* Favicon Upload & Preview */}
+            <div className="md:col-span-1 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Favicon Website (.ico / .png / .svg)
+                </label>
+                {settings.favicon && (
+                  <button
+                    type="button"
+                    onClick={() => setSettings({ ...settings, favicon: '' })}
+                    className="text-[11px] text-red-500 hover:text-red-700 flex items-center gap-1 font-medium transition"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>Xóa Favicon</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Upload Drag & Drop Box */}
+              <div
+                onDragOver={(e) => { e.preventDefault(); setFaviconDragActive(true); }}
+                onDragLeave={() => setFaviconDragActive(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setFaviconDragActive(false);
+                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    processImageUpload(e.dataTransfer.files[0], 'favicon');
+                  }
+                }}
+                className={`border-2 border-dashed rounded-xl p-3.5 transition flex flex-col items-center justify-center text-center ${
+                  faviconDragActive ? 'border-indigo-500 bg-indigo-50/50' : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50'
+                }`}
+              >
+                {settings.favicon ? (
+                  <div className="w-full flex flex-col items-center gap-2">
+                    <div className="h-14 w-full flex items-center justify-center gap-2 p-2 bg-slate-900 rounded-lg border border-slate-700 shadow-2xs">
+                      <img
+                        src={settings.favicon}
+                        alt="Favicon preview"
+                        className="w-8 h-8 object-contain rounded"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                      <div className="text-left">
+                        <span className="text-[11px] font-medium text-slate-200 block truncate max-w-[180px]">{settings.site_name || 'Website Tab'}</span>
+                        <span className="text-[9px] text-slate-400 block">Xem trước biểu tượng tab trình duyệt</span>
+                      </div>
+                    </div>
+                    <span className="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
+                      <Check className="w-3 h-3" /> Đã có ảnh Favicon
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-1.5 py-1">
+                    <div className="w-9 h-9 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
+                      {uploadingFavicon ? <Loader2 className="w-5 h-5 animate-spin" /> : <Globe className="w-5 h-5" />}
+                    </div>
+                    <p className="text-xs text-slate-600 font-medium">Kéo thả icon Favicon vào đây</p>
+                    <p className="text-[10px] text-slate-400">Hỗ trợ .ICO, .PNG, .SVG, .WEBP (Max 5MB)</p>
+                  </div>
+                )}
+
+                <div className="mt-2.5 flex items-center gap-2 w-full">
+                  <label className="flex-1 cursor-pointer bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 py-1.5 px-3 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5 shadow-2xs">
+                    {uploadingFavicon ? <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" /> : <Upload className="w-3.5 h-3.5 text-indigo-600" />}
+                    <span>{uploadingFavicon ? 'Đang tải lên...' : 'Tải Favicon Lên'}</span>
+                    <input
+                      type="file"
+                      accept="image/x-icon, image/vnd.microsoft.icon, image/png, image/jpeg, image/webp, image/svg+xml, .ico, .svg"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          processImageUpload(e.target.files[0], 'favicon');
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Direct URL Input fallback */}
               <input
                 type="text"
                 value={settings.favicon}
                 onChange={(e) => setSettings({ ...settings, favicon: e.target.value })}
-                placeholder="https://example.com/favicon.ico"
-                className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Hoặc dán trực tiếp URL Favicon (https://...)"
+                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
               />
             </div>
           </div>
@@ -320,6 +521,100 @@ export const AdminSettingsView: React.FC = () => {
               <div>
                 <span className="text-xs font-semibold text-slate-800">Cho phép Upload ảnh (Upload Enable)</span>
                 <span className="text-[11px] text-slate-500 block">Tải ảnh OpenGraph tối đa 5MB lên local storage</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        {/* Section: Link Expiration Rules */}
+        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
+          <h3 className="font-bold text-base text-slate-900 flex items-center gap-2 border-b border-slate-200 pb-2">
+            <Clock className="w-4 h-4 text-indigo-600" /> Quy Định Hạn Dùng Mặc Định Cho Link Người Dùng
+          </h3>
+
+          <p className="text-xs text-slate-500">
+            Cấu hình thời gian tự động hết hạn mặc định hoặc giới hạn thời gian tối đa cho các liên kết do người dùng tạo.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                Thời gian hết hạn mặc định (Default Expiration Days)
+              </label>
+              <div className="space-y-2">
+                <input
+                  type="number"
+                  min="0"
+                  value={settings.default_expiration_days ?? 0}
+                  onChange={(e) => setSettings({ ...settings, default_expiration_days: parseInt(e.target.value, 10) || 0 })}
+                  placeholder="0 = Không hết hạn (Vĩnh viễn)"
+                  className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <div className="flex flex-wrap gap-1.5 text-[11px]">
+                  {[
+                    { label: 'Vĩnh viễn (0 ngày)', val: 0 },
+                    { label: '7 Ngày', val: 7 },
+                    { label: '30 Ngày', val: 30 },
+                    { label: '90 Ngày', val: 90 },
+                    { label: '365 Ngày', val: 365 }
+                  ].map((preset) => (
+                    <button
+                      key={preset.val}
+                      type="button"
+                      onClick={() => setSettings({ ...settings, default_expiration_days: preset.val })}
+                      className={`px-2.5 py-1 rounded-md border text-xs transition ${
+                        (settings.default_expiration_days ?? 0) === preset.val
+                          ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-bold'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-[11px] text-slate-500 block">
+                  {(settings.default_expiration_days ?? 0) > 0
+                    ? `Mọi link do người dùng tạo sẽ tự động hết hạn sau ${settings.default_expiration_days} ngày kể từ lúc tạo.`
+                    : 'Mặc định các link mới sẽ KHÔNG bị hết hạn (Vĩnh viễn).'}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                Thời gian hết hạn tối đa được phép (Max Expiration Days)
+              </label>
+              <div className="space-y-2">
+                <input
+                  type="number"
+                  min="0"
+                  value={settings.max_expiration_days ?? 0}
+                  onChange={(e) => setSettings({ ...settings, max_expiration_days: parseInt(e.target.value, 10) || 0 })}
+                  placeholder="0 = Không giới hạn"
+                  className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <span className="text-[11px] text-slate-500 block">
+                  {(settings.max_expiration_days ?? 0) > 0
+                    ? `Người dùng chỉ được phép hẹn giờ hết hạn tối đa ${settings.max_expiration_days} ngày.`
+                    : 'Không giới hạn thời gian hết hạn tối đa khi user tự chọn ngày.'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <label className="flex items-center gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-100 transition">
+              <input
+                type="checkbox"
+                checked={settings.allow_unlimited_expiration ?? true}
+                onChange={(e) => setSettings({ ...settings, allow_unlimited_expiration: e.target.checked })}
+                className="w-4 h-4 accent-indigo-600 rounded"
+              />
+              <div>
+                <span className="text-xs font-semibold text-slate-800">Cho phép tạo Link vĩnh viễn (Allow Unlimited Expiration)</span>
+                <span className="text-[11px] text-slate-500 block">
+                  Nếu TẮT, người dùng bắt buộc phải chọn thời gian hết hạn khi tạo link (không được để vĩnh viễn).
+                </span>
               </div>
             </label>
           </div>

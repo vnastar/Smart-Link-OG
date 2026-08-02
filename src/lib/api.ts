@@ -1,4 +1,4 @@
-import { User, LinkItem, SiteSettings, UserStats, AdminStats, AuditLog, VisitLog, BotSimulationResult } from '../types.js';
+import { User, UserRole, UserStatus, LinkItem, SiteSettings, UserStats, AdminStats, AuditLog, VisitLog, BotSimulationResult } from '../types.js';
 
 const TOKEN_KEY = 'smart_link_og_token';
 
@@ -125,6 +125,9 @@ export const api = {
     favicon?: string;
     cloudflare_turnstile_enable?: boolean;
     cloudflare_site_key?: string;
+    default_expiration_days?: number;
+    allow_unlimited_expiration?: boolean;
+    max_expiration_days?: number;
   }> {
     try {
       return await this.request('/api/public/config');
@@ -284,6 +287,21 @@ export const api = {
   async getAdminUsers(): Promise<User[]> {
     const data = await this.request('/api/admin/users');
     return data.users;
+  },
+
+  async createAdminUser(payload: {
+    username: string;
+    email: string;
+    password: string;
+    role?: UserRole;
+    daily_limit?: number;
+    status?: UserStatus;
+    must_change_password?: boolean;
+  }): Promise<{ message: string; user: User }> {
+    return this.request('/api/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
   },
 
   async updateAdminUser(id: string, updates: Partial<User>): Promise<User> {
