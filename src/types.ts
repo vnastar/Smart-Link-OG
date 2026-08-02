@@ -91,6 +91,33 @@ export interface AdminStats {
   new_users_today: number;
 }
 
+export interface DistributionStat {
+  name: string;
+  count: number;
+  percentage: number;
+  color?: string;
+}
+
+export interface RegionStat {
+  name: string;
+  count: number;
+  percentage: number;
+  color?: string;
+}
+
+export interface AnalyticsData {
+  total_clicks: number;
+  human_clicks: number;
+  bot_clicks: number;
+  human_percent: number;
+  bot_percent: number;
+  regions: RegionStat[];
+  devices: DistributionStat[];
+  referrers: DistributionStat[];
+  browsers: DistributionStat[];
+  hourly_trend: { hour: string; human: number; bot: number }[];
+}
+
 export interface BotSimulationResult {
   is_bot: boolean;
   matched_agent?: string;

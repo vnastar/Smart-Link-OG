@@ -1,14 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
-import { AdminStats } from '../types.js';
+import { AdminStats, LinkItem } from '../types.js';
 import { Shield, Users, Link2, MousePointerClick, UserPlus, TrendingUp, Activity } from 'lucide-react';
+import { ClickAnalyticsCard } from '../components/ClickAnalyticsCard.js';
 
 export const AdminDashboardView: React.FC = () => {
   const [stats, setStats] = useState<AdminStats | null>(null);
+  const [links, setLinks] = useState<LinkItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getAdminStats().then(setStats).catch(console.error).finally(() => setLoading(false));
+    Promise.all([
+      api.getAdminStats(),
+      api.getLinks()
+    ]).then(([s, l]) => {
+      setStats(s);
+      setLinks(l);
+    }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
   return (
@@ -90,6 +98,9 @@ export const AdminDashboardView: React.FC = () => {
           <div className="text-[11px] text-slate-500 mt-1">Thành viên mới đăng ký</div>
         </div>
       </div>
+
+      {/* Analytics Card */}
+      <ClickAnalyticsCard isAdmin={true} links={links} />
 
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-3">
         <h3 className="font-bold text-lg text-slate-100 flex items-center gap-2">

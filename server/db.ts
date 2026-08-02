@@ -119,30 +119,21 @@ const SEED_DATA: DatabaseSchema = {
   ],
   settings: DEFAULT_SETTINGS,
   visits: [
-    {
-      id: 'vst_1',
-      link_id: 'lnk_video01',
-      slug: 'video01',
-      ip: '113.190.1.20',
-      country: 'Vietnam',
-      referer: 'https://facebook.com',
-      browser: 'Facebook Crawler',
-      device: 'Bot',
-      is_bot: true,
-      created_at: new Date().toISOString()
-    },
-    {
-      id: 'vst_2',
-      link_id: 'lnk_video01',
-      slug: 'video01',
-      ip: '14.161.22.45',
-      country: 'Vietnam',
-      referer: 'Direct',
-      browser: 'Chrome 122',
-      device: 'Mobile',
-      is_bot: false,
-      created_at: new Date().toISOString()
-    }
+    { id: 'vst_01', link_id: 'lnk_video01', slug: 'video01', ip: '113.190.1.20', country: 'Hà Nội', referer: 'https://facebook.com', browser: 'Facebook App', device: 'Mobile', is_bot: false, created_at: new Date(Date.now() - 3600000 * 2).toISOString() },
+    { id: 'vst_02', link_id: 'lnk_video01', slug: 'video01', ip: '14.161.22.45', country: 'TP. Hồ Chí Minh', referer: 'Direct', browser: 'Google Chrome', device: 'Mobile', is_bot: false, created_at: new Date(Date.now() - 3600000 * 3).toISOString() },
+    { id: 'vst_03', link_id: 'lnk_video01', slug: 'video01', ip: '113.160.10.5', country: 'TP. Hồ Chí Minh', referer: 'https://zalo.me', browser: 'Zalo App', device: 'Mobile', is_bot: false, created_at: new Date(Date.now() - 3600000 * 4).toISOString() },
+    { id: 'vst_04', link_id: 'lnk_video01', slug: 'video01', ip: '42.112.50.88', country: 'Đà Nẵng', referer: 'https://google.com', browser: 'Google Chrome', device: 'Desktop', is_bot: false, created_at: new Date(Date.now() - 3600000 * 5).toISOString() },
+    { id: 'vst_05', link_id: 'lnk_video01', slug: 'video01', ip: '113.190.88.1', country: 'Hà Nội', referer: 'https://facebook.com', browser: 'Facebook externalhit/1.1', device: 'Bot', is_bot: true, created_at: new Date(Date.now() - 3600000 * 6).toISOString() },
+    { id: 'vst_06', link_id: 'lnk_video01', slug: 'video01', ip: '171.244.1.99', country: 'Cần Thơ', referer: 'https://tiktok.com', browser: 'TikTok App', device: 'Mobile', is_bot: false, created_at: new Date(Date.now() - 3600000 * 7).toISOString() },
+    { id: 'vst_07', link_id: 'lnk_video01', slug: 'video01', ip: '118.69.100.12', country: 'Hải Phòng', referer: 'https://zalo.me', browser: 'Zalo App', device: 'Mobile', is_bot: false, created_at: new Date(Date.now() - 3600000 * 8).toISOString() },
+    { id: 'vst_08', link_id: 'lnk_video01', slug: 'video01', ip: '113.190.40.2', country: 'Hà Nội', referer: 'https://facebook.com', browser: 'Facebook App', device: 'Mobile', is_bot: false, created_at: new Date(Date.now() - 3600000 * 9).toISOString() },
+    { id: 'vst_09', link_id: 'lnk_video01', slug: 'video01', ip: '27.72.15.30', country: 'Bình Dương', referer: 'https://t.me', browser: 'Apple Safari', device: 'Mobile', is_bot: false, created_at: new Date(Date.now() - 3600000 * 10).toISOString() },
+    { id: 'vst_10', link_id: 'lnk_video01', slug: 'video01', ip: '66.249.66.1', country: 'Quốc Tế (Mỹ)', referer: 'https://google.com', browser: 'Googlebot/2.1', device: 'Bot', is_bot: true, created_at: new Date(Date.now() - 3600000 * 11).toISOString() },
+    { id: 'vst_11', link_id: 'lnk_video01', slug: 'video01', ip: '14.161.80.22', country: 'TP. Hồ Chí Minh', referer: 'Direct', browser: 'Apple Safari', device: 'Tablet', is_bot: false, created_at: new Date(Date.now() - 3600000 * 12).toISOString() },
+    { id: 'vst_12', link_id: 'lnk_video01', slug: 'video01', ip: '113.190.99.4', country: 'Hà Nội', referer: 'https://google.com', browser: 'Google Chrome', device: 'Desktop', is_bot: false, created_at: new Date(Date.now() - 3600000 * 13).toISOString() },
+    { id: 'vst_13', link_id: 'lnk_demo02', slug: 'P8Hsj9', ip: '14.161.10.1', country: 'TP. Hồ Chí Minh', referer: 'https://facebook.com', browser: 'Facebook App', device: 'Mobile', is_bot: false, created_at: new Date(Date.now() - 3600000 * 14).toISOString() },
+    { id: 'vst_14', link_id: 'lnk_demo02', slug: 'P8Hsj9', ip: '113.190.55.88', country: 'Hà Nội', referer: 'https://zalo.me', browser: 'Zalo App', device: 'Mobile', is_bot: false, created_at: new Date(Date.now() - 3600000 * 15).toISOString() },
+    { id: 'vst_15', link_id: 'lnk_demo02', slug: 'P8Hsj9', ip: '42.112.99.11', country: 'Đà Nẵng', referer: 'Direct', browser: 'Microsoft Edge', device: 'Desktop', is_bot: false, created_at: new Date(Date.now() - 3600000 * 16).toISOString() }
   ],
   logs: [
     {

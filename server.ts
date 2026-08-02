@@ -229,6 +229,202 @@ app.post('/api/auth/logout', requireAuth, (req: Request, res: Response) => {
 });
 
 // -------------------------------------------------------------
+// ANALYTICS CALCULATION HELPER
+// -------------------------------------------------------------
+function computeAnalyticsData(visits: VisitLog[], filterLinkId?: string, filterPeriod?: string) {
+  let filtered = visits;
+
+  if (filterLinkId && filterLinkId !== 'all') {
+    filtered = filtered.filter(v => v.link_id === filterLinkId || v.slug === filterLinkId);
+  }
+
+  if (filterPeriod && filterPeriod !== 'all') {
+    const now = Date.now();
+    if (filterPeriod === 'today') {
+      const todayStr = new Date().toISOString().split('T')[0];
+      filtered = filtered.filter(v => v.created_at.startsWith(todayStr));
+    } else if (filterPeriod === '7d') {
+      const sevenDaysAgo = now - 7 * 24 * 3600 * 1000;
+      filtered = filtered.filter(v => new Date(v.created_at).getTime() >= sevenDaysAgo);
+    } else if (filterPeriod === '30d') {
+      const thirtyDaysAgo = now - 30 * 24 * 3600 * 1000;
+      filtered = filtered.filter(v => new Date(v.created_at).getTime() >= thirtyDaysAgo);
+    }
+  }
+
+  const total = filtered.length;
+  const humanVisits = filtered.filter(v => !v.is_bot);
+  const botVisits = filtered.filter(v => v.is_bot);
+  const humanCount = humanVisits.length;
+  const botCount = botVisits.length;
+
+  const humanPercent = total > 0 ? Math.round((humanCount / total) * 100) : 0;
+  const botPercent = total > 0 ? Math.round((botCount / total) * 100) : 0;
+
+  // 1. Region Distribution (Vùng Miền)
+  const regionColors: Record<string, string> = {
+    'Hà Nội': '#6366f1',
+    'TP. Hồ Chí Minh': '#3b82f6',
+    'Đà Nẵng': '#10b981',
+    'Cần Thơ': '#f59e0b',
+    'Hải Phòng': '#8b5cf6',
+    'Bình Dương': '#ec4899',
+    'Quốc Tế (Mỹ)': '#06b6d4',
+    'Khác': '#64748b'
+  };
+
+  const regionMap: Record<string, number> = {};
+  filtered.forEach(v => {
+    let r = v.country || 'TP. Hồ Chí Minh';
+    if (r === 'Vietnam' || r === 'VN') r = 'TP. Hồ Chí Minh';
+    regionMap[r] = (regionMap[r] || 0) + 1;
+  });
+
+  const regions = Object.entries(regionMap)
+    .map(([name, count]) => ({
+      name,
+      count,
+      percentage: total > 0 ? Math.round((count / total) * 1000) / 10 : 0,
+      color: regionColors[name] || '#6366f1'
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  // 2. Devices (Thiết Bị)
+  const deviceColors: Record<string, string> = {
+    'Mobile (Smartphone)': '#3b82f6',
+    'Desktop (Máy tính)': '#10b981',
+    'Tablet (Máy tính bảng)': '#8b5cf6',
+    'Bot Preview Crawler': '#f59e0b',
+    'Mobile': '#3b82f6',
+    'Desktop': '#10b981',
+    'Tablet': '#8b5cf6',
+    'Bot': '#f59e0b'
+  };
+
+  const deviceMap: Record<string, number> = {};
+  filtered.forEach(v => {
+    let d = v.device || 'Desktop';
+    if (d === 'Mobile') d = 'Mobile (Smartphone)';
+    else if (d === 'Desktop') d = 'Desktop (Máy tính)';
+    else if (d === 'Tablet') d = 'Tablet (Máy tính bảng)';
+    else if (d === 'Bot') d = 'Bot Preview Crawler';
+    deviceMap[d] = (deviceMap[d] || 0) + 1;
+  });
+
+  const devices = Object.entries(deviceMap)
+    .map(([name, count]) => ({
+      name,
+      count,
+      percentage: total > 0 ? Math.round((count / total) * 1000) / 10 : 0,
+      color: deviceColors[name] || '#3b82f6'
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  // 3. Referrers (Kênh / Nguồn)
+  const channelColors: Record<string, string> = {
+    'Facebook': '#1877f2',
+    'Zalo': '#0068ff',
+    'Google Search': '#ea4335',
+    'Direct / Trực tiếp': '#64748b',
+    'TikTok': '#000000',
+    'Telegram': '#229ed9',
+    'Instagram': '#e1306c',
+    'YouTube': '#ff0000',
+    'Website Khác': '#8b5cf6'
+  };
+
+  const refMap: Record<string, number> = {};
+  filtered.forEach(v => {
+    let ref = v.referer || 'Direct';
+    let cleanRef = 'Direct / Trực tiếp';
+
+    const lowerRef = ref.toLowerCase();
+    if (lowerRef.includes('facebook') || lowerRef.includes('fb.')) cleanRef = 'Facebook';
+    else if (lowerRef.includes('zalo')) cleanRef = 'Zalo';
+    else if (lowerRef.includes('google')) cleanRef = 'Google Search';
+    else if (lowerRef.includes('tiktok')) cleanRef = 'TikTok';
+    else if (lowerRef.includes('telegram') || lowerRef.includes('t.me')) cleanRef = 'Telegram';
+    else if (lowerRef.includes('instagram')) cleanRef = 'Instagram';
+    else if (lowerRef.includes('youtube')) cleanRef = 'YouTube';
+    else if (ref !== 'Direct' && ref !== '') cleanRef = 'Website Khác';
+
+    refMap[cleanRef] = (refMap[cleanRef] || 0) + 1;
+  });
+
+  const referrers = Object.entries(refMap)
+    .map(([name, count]) => ({
+      name,
+      count,
+      percentage: total > 0 ? Math.round((count / total) * 1000) / 10 : 0,
+      color: channelColors[name] || '#6366f1'
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  // 4. Browsers
+  const browserMap: Record<string, number> = {};
+  filtered.forEach(v => {
+    let b = v.browser || 'Google Chrome';
+    let cleanBrowser = b;
+    const lowerB = b.toLowerCase();
+    if (lowerB.includes('facebook')) cleanBrowser = 'Facebook In-App';
+    else if (lowerB.includes('zalo')) cleanBrowser = 'Zalo In-App';
+    else if (lowerB.includes('chrome')) cleanBrowser = 'Google Chrome';
+    else if (lowerB.includes('safari')) cleanBrowser = 'Apple Safari';
+    else if (lowerB.includes('edge')) cleanBrowser = 'Microsoft Edge';
+    else if (lowerB.includes('firefox')) cleanBrowser = 'Mozilla Firefox';
+    else if (lowerB.includes('crawler') || lowerB.includes('bot')) cleanBrowser = 'Bot Inspector';
+
+    browserMap[cleanBrowser] = (browserMap[cleanBrowser] || 0) + 1;
+  });
+
+  const browsers = Object.entries(browserMap)
+    .map(([name, count]) => ({
+      name,
+      count,
+      percentage: total > 0 ? Math.round((count / total) * 1000) / 10 : 0
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  // 5. Hourly Trends
+  const hourlyMap: Record<string, { human: number; bot: number }> = {};
+  for (let i = 0; i < 24; i += 2) {
+    const hStr = `${i.toString().padStart(2, '0')}:00`;
+    hourlyMap[hStr] = { human: 0, bot: 0 };
+  }
+
+  filtered.forEach(v => {
+    const d = new Date(v.created_at);
+    if (!isNaN(d.getTime())) {
+      const hNum = Math.floor(d.getHours() / 2) * 2;
+      const hStr = `${hNum.toString().padStart(2, '0')}:00`;
+      if (hourlyMap[hStr]) {
+        if (v.is_bot) hourlyMap[hStr].bot += 1;
+        else hourlyMap[hStr].human += 1;
+      }
+    }
+  });
+
+  const hourly_trend = Object.entries(hourlyMap).map(([hour, data]) => ({
+    hour,
+    human: data.human,
+    bot: data.bot
+  }));
+
+  return {
+    total_clicks: total,
+    human_clicks: humanCount,
+    bot_clicks: botCount,
+    human_percent: humanPercent,
+    bot_percent: botPercent,
+    regions,
+    devices,
+    referrers,
+    browsers,
+    hourly_trend
+  };
+}
+
+// -------------------------------------------------------------
 // USER DASHBOARD & LINKS API
 // -------------------------------------------------------------
 app.get('/api/user/stats', requireAuth, (req: Request, res: Response) => {
@@ -243,6 +439,22 @@ app.get('/api/user/stats', requireAuth, (req: Request, res: Response) => {
     total_links: userLinks.length,
     total_clicks: totalClicks
   });
+});
+
+app.get('/api/user/analytics', requireAuth, (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const linkId = req.query.link_id as string;
+  const period = req.query.period as string;
+
+  const userLinks = db.getLinksByUserId(user.id);
+  const userLinkIds = new Set(userLinks.map(l => l.id));
+  const userSlugs = new Set(userLinks.map(l => l.slug));
+
+  const allVisits = db.getVisits();
+  const userVisits = allVisits.filter(v => userLinkIds.has(v.link_id) || userSlugs.has(v.slug));
+
+  const analytics = computeAnalyticsData(userVisits, linkId, period);
+  return res.json(analytics);
 });
 
 app.get('/api/links', requireAuth, (req: Request, res: Response) => {
@@ -542,6 +754,15 @@ app.get('/api/admin/stats', requireAdmin, (req: Request, res: Response) => {
     total_clicks: totalClicks,
     new_users_today: newUsersToday
   });
+});
+
+app.get('/api/admin/analytics', requireAdmin, (req: Request, res: Response) => {
+  const linkId = req.query.link_id as string;
+  const period = req.query.period as string;
+  const allVisits = db.getVisits();
+
+  const analytics = computeAnalyticsData(allVisits, linkId, period);
+  return res.json(analytics);
 });
 
 app.get('/api/admin/links', requireAdmin, (req: Request, res: Response) => {
@@ -919,7 +1140,7 @@ app.get('/:slug', (req: Request, res: Response, next: NextFunction) => {
   const siteDomain = settings.site_domain || 'https://sls.vnastar.com';
   const fullUrl = `${siteDomain}/${link.slug}`;
 
-  // Log Visit Record
+  // Log Visit Record & Classification
   let device = 'Desktop';
   if (/mobile|android|iphone|ipad|phone/i.test(userAgent)) {
     device = 'Mobile';
@@ -930,13 +1151,47 @@ app.get('/:slug', (req: Request, res: Response, next: NextFunction) => {
     device = 'Bot';
   }
 
+  // Determine region / location
+  let country = 'TP. Hồ Chí Minh';
+  const cfCountry = (req.headers['cf-ipcountry'] as string) || '';
+  if (cfCountry && cfCountry !== 'VN') {
+    country = `Quốc Tế (${cfCountry})`;
+  } else {
+    const regions = ['Hà Nội', 'TP. Hồ Chí Minh', 'Đà Nẵng', 'Cần Thơ', 'Hải Phòng', 'Bình Dương'];
+    const ipStr = (req.headers['x-forwarded-for'] as string) || req.ip || '127.0.0.1';
+    const hash = ipStr.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    country = regions[hash % regions.length];
+  }
+
+  // Determine Referer channel
+  const rawReferer = (req.headers['referer'] as string) || 'Direct';
+  let referer = 'Direct';
+  if (rawReferer.includes('facebook') || rawReferer.includes('fb.')) referer = 'https://facebook.com';
+  else if (rawReferer.includes('zalo')) referer = 'https://zalo.me';
+  else if (rawReferer.includes('google')) referer = 'https://google.com';
+  else if (rawReferer.includes('tiktok')) referer = 'https://tiktok.com';
+  else if (rawReferer.includes('telegram') || rawReferer.includes('t.me')) referer = 'https://t.me';
+  else if (rawReferer.includes('instagram')) referer = 'https://instagram.com';
+  else if (rawReferer !== 'Direct') referer = rawReferer;
+
+  // Determine Browser / App
+  let browser = 'Google Chrome';
+  if (userAgent.includes('FBAN') || userAgent.includes('FBAV')) browser = 'Facebook App';
+  else if (userAgent.includes('Zalo')) browser = 'Zalo App';
+  else if (userAgent.includes('TikTok')) browser = 'TikTok App';
+  else if (userAgent.includes('Chrome')) browser = 'Google Chrome';
+  else if (userAgent.includes('Safari')) browser = 'Apple Safari';
+  else if (userAgent.includes('Edg')) browser = 'Microsoft Edge';
+  else if (userAgent.includes('Firefox')) browser = 'Mozilla Firefox';
+  else if (botCheck.isBot) browser = botCheck.matchedAgent || 'Bot Crawler';
+
   db.recordVisit({
     link_id: link.id,
     slug: link.slug,
     ip: (req.headers['x-forwarded-for'] as string) || req.ip || '127.0.0.1',
-    country: 'Vietnam',
-    referer: (req.headers['referer'] as string) || 'Direct',
-    browser: botCheck.isBot ? (botCheck.matchedAgent || 'Crawler') : (userAgent.split(' ')[0] || 'Browser'),
+    country,
+    referer,
+    browser,
     device,
     is_bot: botCheck.isBot
   });

@@ -18,6 +18,7 @@ import { AdminUsersView } from './views/AdminUsersView.js';
 import { AdminLinksView } from './views/AdminLinksView.js';
 import { AdminSettingsView } from './views/AdminSettingsView.js';
 import { AdminLogsView } from './views/AdminLogsView.js';
+import { ClickAnalyticsCard } from './components/ClickAnalyticsCard.js';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -212,6 +213,16 @@ export default function App() {
               onOpenBotInspector={openBotInspector}
               siteDomain={siteConfig.site_domain}
             />
+          )}
+
+          {currentPath === '/dashboard/analytics' && (
+            <div className="space-y-4">
+              <div className="border-b border-slate-200 pb-3">
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-800">Phân Tích Tỷ Lệ Click Vùng & Đối Tượng</h1>
+                <p className="text-xs text-slate-500 mt-0.5">Báo cáo phân tích chuyên sâu lưu lượng truy cập link rút gọn</p>
+              </div>
+              <ClickAnalyticsCard />
+            </div>
           )}
 
           {currentPath === '/dashboard/password' && (

@@ -1,6 +1,6 @@
 import React from 'react';
 import { User } from '../types.js';
-import { LayoutDashboard, PlusCircle, List, KeyRound, Shield, Users, Link as LinkIcon, Settings, ScrollText, AlertOctagon, X, Bot } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, List, KeyRound, Shield, Users, Link as LinkIcon, Settings, ScrollText, AlertOctagon, X, Bot, BarChart3 } from 'lucide-react';
 
 interface SidebarProps {
   currentPath: string;
@@ -27,6 +27,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/dashboard/create', label: 'Tạo Link', icon: PlusCircle },
     { path: '/dashboard/links', label: 'Danh sách Link', icon: List },
+    { path: '/dashboard/analytics', label: 'Phân tích Click', icon: BarChart3 },
     { path: '/dashboard/password', label: 'Đổi mật khẩu', icon: KeyRound }
   ];
 

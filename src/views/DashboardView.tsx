@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { User, UserStats, LinkItem } from '../types.js';
 import { PlusCircle, Link2, MousePointerClick, Calendar, Shield, Copy, Check, QrCode, ExternalLink, Bot, Trash2, Edit3, Search, RefreshCw } from 'lucide-react';
+import { ClickAnalyticsCard } from '../components/ClickAnalyticsCard.js';
 
 interface DashboardViewProps {
   user: User;
@@ -153,6 +154,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Click Analytics Analysis Section (Vùng miền & Đối tượng) */}
+      <ClickAnalyticsCard links={links} />
 
       {/* Recent Links Section */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6 shadow-xs space-y-4">

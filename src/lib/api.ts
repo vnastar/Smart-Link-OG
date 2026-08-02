@@ -1,4 +1,4 @@
-import { User, UserRole, UserStatus, LinkItem, SiteSettings, UserStats, AdminStats, AuditLog, VisitLog, BotSimulationResult } from '../types.js';
+import { User, UserRole, UserStatus, LinkItem, SiteSettings, UserStats, AdminStats, AuditLog, VisitLog, BotSimulationResult, AnalyticsData } from '../types.js';
 
 const TOKEN_KEY = 'smart_link_og_token';
 
@@ -191,6 +191,22 @@ export const api = {
   // User Dashboard
   async getUserStats(): Promise<UserStats> {
     return this.request('/api/user/stats');
+  },
+
+  async getUserAnalytics(linkId?: string, period?: string): Promise<AnalyticsData> {
+    const params = new URLSearchParams();
+    if (linkId) params.append('link_id', linkId);
+    if (period) params.append('period', period);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return this.request(`/api/user/analytics${query}`);
+  },
+
+  async getAdminAnalytics(linkId?: string, period?: string): Promise<AnalyticsData> {
+    const params = new URLSearchParams();
+    if (linkId) params.append('link_id', linkId);
+    if (period) params.append('period', period);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return this.request(`/api/admin/analytics${query}`);
   },
 
   async getLinks(search?: string): Promise<LinkItem[]> {
