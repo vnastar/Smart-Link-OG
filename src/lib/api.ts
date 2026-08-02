@@ -210,6 +210,8 @@ export const api = {
     title?: string;
     description?: string;
     image?: string;
+    og_url?: string;
+    og_type?: string;
     expires_at?: string | null;
   }): Promise<LinkItem> {
     const data = await this.request('/api/links', {

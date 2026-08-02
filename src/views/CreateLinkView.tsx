@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api.js';
 import { User, LinkItem } from '../types.js';
 import { OGPreviewCard } from '../components/OGPreviewCard.js';
-import { PlusCircle, Link2, Upload, Image as ImageIcon, Sparkles, AlertTriangle, Check, ArrowRight, Calendar, Globe, AlertOctagon } from 'lucide-react';
+import { PlusCircle, Link2, Upload, Image as ImageIcon, Sparkles, AlertTriangle, Check, ArrowRight, Calendar, Globe, AlertOctagon, Sliders, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface CreateLinkViewProps {
   user: User;
@@ -20,6 +20,9 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [image, setImage] = useState('');
+  const [ogUrl, setOgUrl] = useState('');
+  const [ogType, setOgType] = useState('website');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [expiresAt, setExpiresAt] = useState('');
   const [hasExpiration, setHasExpiration] = useState(false);
 
@@ -124,6 +127,8 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
         title: title || 'Smart Link Preview',
         description,
         image,
+        og_url: ogUrl.trim(),
+        og_type: ogType.trim() || 'website',
         expires_at: hasExpiration && expiresAt ? expiresAt : null
       });
 
@@ -218,6 +223,9 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
                 setTitle('');
                 setDescription('');
                 setImage('');
+                setOgUrl('');
+                setOgType('website');
+                setShowAdvanced(false);
                 setExpiresAt('');
                 setHasExpiration(false);
               }}
@@ -374,6 +382,90 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
                 </div>
               </div>
 
+              {/* Advanced Options Accordion */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl overflow-hidden transition-all">
+                <button
+                  type="button"
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                  className="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-100/80 transition"
+                >
+                  <div className="flex items-center gap-2">
+                    <Sliders className="w-4 h-4 text-indigo-600" />
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 block">
+                        Tùy chọn Nâng cao (Advanced: og:url, og:type)
+                      </span>
+                      <span className="text-[11px] text-slate-500 block">
+                        Tùy chỉnh thẻ meta og:url và og:type cho Facebook & Zalo
+                      </span>
+                    </div>
+                  </div>
+                  {showAdvanced ? (
+                    <ChevronUp className="w-4 h-4 text-slate-500" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-slate-500" />
+                  )}
+                </button>
+
+                {showAdvanced && (
+                  <div className="p-3.5 border-t border-slate-200 space-y-3.5 bg-white">
+                    {/* og:url */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                        OpenGraph Canonical URL (og:url)
+                      </label>
+                      <input
+                        type="url"
+                        value={ogUrl}
+                        onChange={(e) => setOgUrl(e.target.value)}
+                        placeholder="https://trangweb.com/bai-viet (Mặc định: URL link rút gọn)"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[40px]"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Nếu để trống, thẻ <code>og:url</code> sẽ tự động sử dụng URL link rút gọn Smart OG.
+                      </p>
+                    </div>
+
+                    {/* og:type */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                        OpenGraph Type (og:type)
+                      </label>
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        {[
+                          { value: 'website', label: 'website (Mặc định)' },
+                          { value: 'article', label: 'article (Bài viết)' },
+                          { value: 'video.other', label: 'video.other (Video)' },
+                          { value: 'music.song', label: 'music.song (Âm nhạc)' },
+                          { value: 'profile', label: 'profile (Trang cá nhân)' },
+                          { value: 'product', label: 'product (Sản phẩm)' }
+                        ].map((item) => (
+                          <button
+                            key={item.value}
+                            type="button"
+                            onClick={() => setOgType(item.value)}
+                            className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-medium text-left transition ${
+                              ogType === item.value
+                                ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-bold'
+                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                      <input
+                        type="text"
+                        value={ogType}
+                        onChange={(e) => setOgType(e.target.value)}
+                        placeholder="Hoặc nhập custom og:type..."
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[40px]"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Expiration Date Toggle */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-3">
                 <div className="flex items-center justify-between gap-3">
@@ -448,6 +540,8 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
               image={image}
               domain={siteDomain}
               slug={slug || 'P8Hsj9'}
+              ogUrl={ogUrl}
+              ogType={ogType}
             />
           </div>
         </div>

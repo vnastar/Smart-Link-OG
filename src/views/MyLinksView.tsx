@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { User, LinkItem } from '../types.js';
-import { List, Search, Copy, Check, QrCode, Bot, Trash2, Edit3, ExternalLink, ArrowUpDown, ChevronLeft, ChevronRight, X, Save, Upload, Calendar } from 'lucide-react';
+import { List, Search, Copy, Check, QrCode, Bot, Trash2, Edit3, ExternalLink, ArrowUpDown, ChevronLeft, ChevronRight, X, Save, Upload, Calendar, Sliders, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface MyLinksViewProps {
   user: User;
@@ -32,6 +32,9 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
   const [editDesc, setEditDesc] = useState('');
   const [editImage, setEditImage] = useState('');
   const [editDest, setEditDest] = useState('');
+  const [editOgUrl, setEditOgUrl] = useState('');
+  const [editOgType, setEditOgType] = useState('website');
+  const [showEditAdvanced, setShowEditAdvanced] = useState(false);
   const [editExpiresAt, setEditExpiresAt] = useState('');
   const [hasEditExpiration, setHasEditExpiration] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -113,6 +116,9 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
     setEditDesc(link.description);
     setEditImage(link.image);
     setEditDest(link.destination_url);
+    setEditOgUrl(link.og_url || '');
+    setEditOgType(link.og_type || 'website');
+    setShowEditAdvanced(!!(link.og_url || (link.og_type && link.og_type !== 'website')));
 
     if (link.expires_at) {
       const d = new Date(link.expires_at);
@@ -134,6 +140,8 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
         description: editDesc,
         image: editImage,
         destination_url: editDest,
+        og_url: editOgUrl.trim(),
+        og_type: editOgType.trim() || 'website',
         expires_at: hasEditExpiration && editExpiresAt ? editExpiresAt : null
       });
       setEditingLink(null);
@@ -442,6 +450,87 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
                     )}
                   </div>
                 </div>
+              </div>
+
+              {/* Advanced Options Accordion */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl overflow-hidden transition-all">
+                <button
+                  type="button"
+                  onClick={() => setShowEditAdvanced(!showEditAdvanced)}
+                  className="w-full p-3 flex items-center justify-between text-left hover:bg-slate-100/80 transition"
+                >
+                  <div className="flex items-center gap-2">
+                    <Sliders className="w-4 h-4 text-indigo-600" />
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 block">
+                        Tùy chọn Nâng cao (Advance: og:url, og:type)
+                      </span>
+                      <span className="text-[10px] text-slate-500 block">
+                        Tùy chỉnh thẻ meta og:url và og:type
+                      </span>
+                    </div>
+                  </div>
+                  {showEditAdvanced ? (
+                    <ChevronUp className="w-4 h-4 text-slate-500" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-slate-500" />
+                  )}
+                </button>
+
+                {showEditAdvanced && (
+                  <div className="p-3 border-t border-slate-200 space-y-3 bg-white">
+                    {/* og:url */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                        OpenGraph Canonical URL (og:url)
+                      </label>
+                      <input
+                        type="url"
+                        value={editOgUrl}
+                        onChange={(e) => setEditOgUrl(e.target.value)}
+                        placeholder="https://trangweb.com/bai-viet"
+                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    {/* og:type */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                        OpenGraph Type (og:type)
+                      </label>
+                      <div className="grid grid-cols-2 gap-1.5 mb-2">
+                        {[
+                          { value: 'website', label: 'website' },
+                          { value: 'article', label: 'article' },
+                          { value: 'video.other', label: 'video' },
+                          { value: 'music.song', label: 'music' },
+                          { value: 'profile', label: 'profile' },
+                          { value: 'product', label: 'product' }
+                        ].map((item) => (
+                          <button
+                            key={item.value}
+                            type="button"
+                            onClick={() => setEditOgType(item.value)}
+                            className={`px-2 py-1 rounded border text-[11px] text-left transition ${
+                              editOgType === item.value
+                                ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-bold'
+                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                      <input
+                        type="text"
+                        value={editOgType}
+                        onChange={(e) => setEditOgType(e.target.value)}
+                        placeholder="Hoặc nhập custom og:type..."
+                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Expiration Date Toggle */}

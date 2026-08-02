@@ -22,6 +22,8 @@ export interface LinkItem {
   title: string;
   description: string;
   image: string;
+  og_url?: string;
+  og_type?: string;
   clicks: number;
   expires_at?: string | null;
   created_at: string;

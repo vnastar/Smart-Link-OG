@@ -57,13 +57,16 @@ export class BotDetector {
     image: string;
     url: string;
     siteName: string;
+    ogType?: string;
+    ogUrl?: string;
   }): string {
-    const { title, description, image, url, siteName } = options;
+    const { title, description, image, url, siteName, ogType, ogUrl } = options;
 
     const safeTitle = this.escapeHtml(title || siteName);
     const safeDesc = this.escapeHtml(description || '');
     const safeImage = this.escapeHtml(image || '');
-    const safeUrl = this.escapeHtml(url);
+    const safeUrl = this.escapeHtml((ogUrl && ogUrl.trim()) ? ogUrl.trim() : url);
+    const safeType = this.escapeHtml((ogType && ogType.trim()) ? ogType.trim() : 'website');
     const safeSite = this.escapeHtml(siteName);
 
     return `<!DOCTYPE html>
@@ -73,7 +76,7 @@ export class BotDetector {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${safeTitle}</title>
     <!-- Open Graph / Facebook / Zalo / Telegram -->
-    <meta property="og:type" content="website">
+    <meta property="og:type" content="${safeType}">
     <meta property="og:url" content="${safeUrl}">
     <meta property="og:title" content="${safeTitle}">
     <meta property="og:description" content="${safeDesc}">

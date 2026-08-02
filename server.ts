@@ -293,7 +293,7 @@ app.post('/api/links', requireAuth, (req: Request, res: Response) => {
     });
   }
 
-  let { destination_url, slug, title, description, image, expires_at } = req.body;
+  let { destination_url, slug, title, description, image, expires_at, og_url, og_type } = req.body;
 
   if (!destination_url) {
     return res.status(400).json({ error: 'Vui lòng nhập đường dẫn gốc (Destination URL)' });
@@ -322,6 +322,8 @@ app.post('/api/links', requireAuth, (req: Request, res: Response) => {
     title: title || 'Smart Link Preview',
     description: description || 'Rút gọn link thông minh hiển thị OpenGraph',
     image: image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80',
+    og_url: og_url || '',
+    og_type: og_type || 'website',
     expires_at: expires_at || null
   });
 
@@ -343,13 +345,15 @@ app.put('/api/links/:id', requireAuth, (req: Request, res: Response) => {
     return res.status(403).json({ error: 'Bạn không có quyền chỉnh sửa link này' });
   }
 
-  const { destination_url, title, description, image, expires_at } = req.body;
+  const { destination_url, title, description, image, expires_at, og_url, og_type } = req.body;
 
   const updated = db.updateLink(linkId, {
     destination_url: destination_url || existing.destination_url,
     title: title !== undefined ? title : existing.title,
     description: description !== undefined ? description : existing.description,
     image: image !== undefined ? image : existing.image,
+    og_url: og_url !== undefined ? og_url : existing.og_url,
+    og_type: og_type !== undefined ? og_type : existing.og_type,
     expires_at: expires_at !== undefined ? expires_at : existing.expires_at
   });
 
@@ -434,7 +438,9 @@ app.post('/api/simulate-bot', (req: Request, res: Response) => {
       description: link.description,
       image: link.image,
       url: fullUrl,
-      siteName: settings.site_name
+      siteName: settings.site_name,
+      ogType: link.og_type,
+      ogUrl: link.og_url
     });
     return res.json({
       is_bot: true,
@@ -729,7 +735,9 @@ app.get('/:slug', (req: Request, res: Response, next: NextFunction) => {
       description: link.description,
       image: link.image,
       url: fullUrl,
-      siteName: settings.site_name
+      siteName: settings.site_name,
+      ogType: link.og_type,
+      ogUrl: link.og_url
     });
     return res.status(200).set('Content-Type', 'text/html; charset=utf-8').send(html);
   }
