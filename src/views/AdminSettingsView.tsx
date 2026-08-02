@@ -165,6 +165,9 @@ export const AdminSettingsView: React.FC = () => {
     try {
       const updated = await api.updateAdminSettings(settings);
       setSettings(updated);
+      try {
+        localStorage.setItem('cf_turnstile_enable', String(Boolean(updated.cloudflare_turnstile_enable)));
+      } catch (e) {}
       setSavedMsg('Đã lưu cấu hình hệ thống thành công!');
       setTimeout(() => setSavedMsg(''), 3000);
     } catch (err: any) {
