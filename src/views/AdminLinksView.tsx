@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { LinkItem } from '../types.js';
-import { Link as LinkIcon, Search, Copy, Check, QrCode, Bot, Trash2, Edit3, ExternalLink, Calendar, Upload, X, Save, Sliders, ChevronDown, ChevronUp } from 'lucide-react';
+import { Link as LinkIcon, Search, Copy, Check, QrCode, Bot, Trash2, Edit3, ExternalLink, Calendar, Upload, X, Save, Sliders, ChevronDown, ChevronUp, Layers, Power, CheckSquare, Square, Clock } from 'lucide-react';
 
 interface AdminLinksViewProps {
   onOpenQR: (slug: string, dest: string) => void;
@@ -19,6 +19,14 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
   const [search, setSearch] = useState('');
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
+  // Selection & Bulk Edit States
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkStatus, setBulkStatus] = useState<'keep' | 'active' | 'disabled'>('keep');
+  const [bulkExpirationOption, setBulkExpirationOption] = useState<'keep' | 'set' | 'remove'>('keep');
+  const [bulkExpiresAt, setBulkExpiresAt] = useState('');
+  const [processingBulk, setProcessingBulk] = useState(false);
+
   // Edit Modal States
   const [editingLink, setEditingLink] = useState<LinkItem | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -27,6 +35,8 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
   const [editDest, setEditDest] = useState('');
   const [editOgUrl, setEditOgUrl] = useState('');
   const [editOgType, setEditOgType] = useState('website');
+  const [editOgSiteName, setEditOgSiteName] = useState('');
+  const [editStatus, setEditStatus] = useState<'active' | 'disabled'>('active');
   const [showEditAdvanced, setShowEditAdvanced] = useState(false);
   const [editExpiresAt, setEditExpiresAt] = useState('');
   const [hasEditExpiration, setHasEditExpiration] = useState(false);
@@ -67,6 +77,78 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
     }
   };
 
+  const toggleSelectAll = () => {
+    if (selectedIds.length === links.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(links.map(l => l.id));
+    }
+  };
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleOpenBulkModal = () => {
+    if (selectedIds.length === 0) {
+      alert('Vui lòng chọn ít nhất 1 link');
+      return;
+    }
+    setBulkStatus('keep');
+    setBulkExpirationOption('keep');
+
+    const defaultDate = new Date();
+    defaultDate.setDate(defaultDate.getDate() + 7);
+    const isoStr = new Date(defaultDate.getTime() - defaultDate.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    setBulkExpiresAt(isoStr);
+
+    setShowBulkModal(true);
+  };
+
+  const handleApplyBulk = async () => {
+    if (bulkStatus === 'keep' && bulkExpirationOption === 'keep') {
+      alert('Vui lòng chọn ít nhất 1 thông số để thay đổi (Trạng thái hoặc Hạn dùng)');
+      return;
+    }
+
+    if (bulkExpirationOption === 'set' && !bulkExpiresAt) {
+      alert('Vui lòng chọn thời gian hết hạn mới');
+      return;
+    }
+
+    setProcessingBulk(true);
+    try {
+      await api.bulkUpdateLinks({
+        ids: selectedIds,
+        status: bulkStatus !== 'keep' ? bulkStatus : undefined,
+        expires_at: bulkExpirationOption === 'set' ? bulkExpiresAt : undefined,
+        remove_expiration: bulkExpirationOption === 'remove'
+      });
+      setShowBulkModal(false);
+      setSelectedIds([]);
+      loadLinks();
+    } catch (err: any) {
+      alert(err.message || 'Cập nhật hàng loạt thất bại');
+    } finally {
+      setProcessingBulk(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (confirm(`Quản trị viên: Bạn có chắc chắn muốn xóa ${selectedIds.length} link đã chọn?`)) {
+      try {
+        await api.bulkDeleteLinks(selectedIds);
+        setSelectedIds([]);
+        loadLinks();
+      } catch (err: any) {
+        alert(err.message || 'Xóa hàng loạt thất bại');
+      }
+    }
+  };
+
   const startEdit = (link: LinkItem) => {
     setEditingLink(link);
     setEditTitle(link.title || '');
@@ -75,7 +157,9 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
     setEditDest(link.destination_url || '');
     setEditOgUrl(link.og_url || '');
     setEditOgType(link.og_type || 'website');
-    setShowEditAdvanced(!!(link.og_url || (link.og_type && link.og_type !== 'website')));
+    setEditOgSiteName(link.og_site_name || '');
+    setEditStatus(link.status || 'active');
+    setShowEditAdvanced(!!(link.og_url || link.og_site_name || (link.og_type && link.og_type !== 'website')));
 
     if (link.expires_at) {
       const d = new Date(link.expires_at);
@@ -135,6 +219,8 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
         destination_url: editDest,
         og_url: editOgUrl.trim(),
         og_type: editOgType.trim() || 'website',
+        og_site_name: editOgSiteName.trim(),
+        status: editStatus,
         expires_at: hasEditExpiration && editExpiresAt ? editExpiresAt : null
       });
       setEditingLink(null);
@@ -177,6 +263,43 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
       </div>
 
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+        {/* Bulk Action Banner */}
+        {selectedIds.length > 0 && (
+          <div className="mb-4 bg-purple-950/60 border border-purple-500/40 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-slate-100">
+            <div className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-purple-400" />
+              <span className="text-xs font-semibold">
+                Đã chọn <strong className="text-purple-300 font-mono text-sm">{selectedIds.length}</strong> / {links.length} liên kết
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={handleOpenBulkModal}
+                className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-lg shadow-purple-600/20"
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span>Sửa Hàng Loạt (Trạng thái & Hạn dùng)</span>
+              </button>
+
+              <button
+                onClick={handleBulkDelete}
+                className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg text-xs font-semibold transition flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Xóa ({selectedIds.length})</span>
+              </button>
+
+              <button
+                onClick={() => setSelectedIds([])}
+                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded-lg text-xs transition"
+              >
+                Bỏ chọn
+              </button>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="py-12 text-center text-slate-500 text-xs">Đang tải danh sách link...</div>
         ) : links.length === 0 ? (
@@ -186,99 +309,143 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
             <table className="w-full text-left text-xs text-slate-300">
               <thead className="bg-slate-950 text-slate-400 uppercase font-mono text-[10px] border-b border-slate-800">
                 <tr>
+                  <th className="p-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={links.length > 0 && selectedIds.length === links.length}
+                      onChange={toggleSelectAll}
+                      className="rounded accent-purple-500 cursor-pointer w-4 h-4"
+                      title="Chọn tất cả"
+                    />
+                  </th>
                   <th className="p-3">User Tạo</th>
                   <th className="p-3">Slug</th>
                   <th className="p-3">Tiêu Đề & Link Gốc</th>
+                  <th className="p-3">Trạng Thái</th>
                   <th className="p-3">Clicks</th>
                   <th className="p-3">Ngày Tạo / Hạn Dùng</th>
                   <th className="p-3 text-right">Thao Tác Admin</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {links.map((link) => (
-                  <tr key={link.id} className="hover:bg-slate-800/40 transition">
-                    <td className="p-3 font-semibold text-purple-300">
-                      {link.user_name || link.user_id}
-                    </td>
+                {links.map((link) => {
+                  const isSelected = selectedIds.includes(link.id);
+                  const isExpired = link.expires_at ? new Date(link.expires_at) < new Date() : false;
+                  const isDisabled = link.status === 'disabled';
 
-                    <td className="p-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                          /{link.slug}
-                        </span>
-                        <button
-                          onClick={() => handleCopy(link.slug)}
-                          className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-emerald-400"
-                          title="Sao chép link"
-                        >
-                          {copiedSlug === link.slug ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                        </button>
-                      </div>
-                    </td>
+                  return (
+                    <tr
+                      key={link.id}
+                      className={`transition ${isSelected ? 'bg-purple-950/30' : 'hover:bg-slate-800/40'}`}
+                    >
+                      <td className="p-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectOne(link.id)}
+                          className="rounded accent-purple-500 cursor-pointer w-4 h-4"
+                        />
+                      </td>
 
-                    <td className="p-3 max-w-xs">
-                      <div className="font-medium text-slate-100 truncate">{link.title}</div>
-                      <div className="text-[11px] text-slate-400 truncate flex items-center gap-1 mt-0.5">
-                        <span className="truncate">{link.destination_url}</span>
-                        <a href={link.destination_url} target="_blank" rel="noreferrer" className="text-slate-500 hover:text-emerald-400">
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      </div>
-                    </td>
+                      <td className="p-3 font-semibold text-purple-300">
+                        {link.user_name || link.user_id}
+                      </td>
 
-                    <td className="p-3 font-mono text-emerald-400 font-semibold">
-                      {link.clicks}
-                    </td>
-
-                    <td className="p-3 text-slate-400 text-[11px]">
-                      <div>{new Date(link.created_at).toLocaleDateString('vi-VN')}</div>
-                      {link.expires_at && (
-                        <div className="mt-1">
-                          {new Date(link.expires_at) < new Date() ? (
-                            <span className="text-[10px] font-bold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20 inline-block">
-                              Đã hết hạn
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-medium text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 inline-block">
-                              Hạn: {new Date(link.expires_at).toLocaleDateString('vi-VN')}
-                            </span>
-                          )}
+                      <td className="p-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                            /{link.slug}
+                          </span>
+                          <button
+                            onClick={() => handleCopy(link.slug)}
+                            className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-emerald-400"
+                            title="Sao chép link"
+                          >
+                            {copiedSlug === link.slug ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
                         </div>
-                      )}
-                    </td>
+                      </td>
 
-                    <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                      <button
-                        onClick={() => startEdit(link)}
-                        className="px-2 py-1 bg-purple-900/40 hover:bg-purple-800/60 text-purple-300 rounded text-[11px] font-medium inline-flex items-center gap-1 border border-purple-700/40"
-                        title="Sửa thông tin link"
-                      >
-                        <Edit3 className="w-3 h-3" /> Sửa
-                      </button>
-                      <button
-                        onClick={() => onOpenBotInspector(link.slug)}
-                        className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] font-medium inline-flex items-center gap-1"
-                        title="Test OpenGraph Bot"
-                      >
-                        <Bot className="w-3 h-3 text-emerald-400" /> Test OG
-                      </button>
-                      <button
-                        onClick={() => onOpenQR(link.slug, link.destination_url)}
-                        className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] font-medium inline-flex items-center gap-1"
-                        title="Tạo mã QR"
-                      >
-                        <QrCode className="w-3 h-3 text-blue-400" /> QR
-                      </button>
-                      <button
-                        onClick={() => handleDelete(link.id, link.slug)}
-                        className="p-1.5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 rounded inline-flex items-center"
-                        title="Xóa link"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      <td className="p-3 max-w-xs">
+                        <div className="font-medium text-slate-100 truncate">{link.title}</div>
+                        <div className="text-[11px] text-slate-400 truncate flex items-center gap-1 mt-0.5">
+                          <span className="truncate">{link.destination_url}</span>
+                          <a href={link.destination_url} target="_blank" rel="noreferrer" className="text-slate-500 hover:text-emerald-400">
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </div>
+                      </td>
+
+                      <td className="p-3">
+                        {isDisabled ? (
+                          <span className="text-[10px] font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20 inline-flex items-center gap-1">
+                            <Power className="w-3 h-3" /> Đã tắt
+                          </span>
+                        ) : isExpired ? (
+                          <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 inline-flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> Hết hạn
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 inline-flex items-center gap-1">
+                            <Check className="w-3 h-3" /> Hoạt động
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="p-3 font-mono text-emerald-400 font-semibold">
+                        {link.clicks}
+                      </td>
+
+                      <td className="p-3 text-slate-400 text-[11px]">
+                        <div>{new Date(link.created_at).toLocaleDateString('vi-VN')}</div>
+                        {link.expires_at && (
+                          <div className="mt-1">
+                            {isExpired ? (
+                              <span className="text-[10px] font-bold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20 inline-block">
+                                Đã hết hạn
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-medium text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 inline-block">
+                                Hạn: {new Date(link.expires_at).toLocaleDateString('vi-VN')}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+
+                      <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                        <button
+                          onClick={() => startEdit(link)}
+                          className="px-2 py-1 bg-purple-900/40 hover:bg-purple-800/60 text-purple-300 rounded text-[11px] font-medium inline-flex items-center gap-1 border border-purple-700/40"
+                          title="Sửa thông tin link"
+                        >
+                          <Edit3 className="w-3 h-3" /> Sửa
+                        </button>
+                        <button
+                          onClick={() => onOpenBotInspector(link.slug)}
+                          className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] font-medium inline-flex items-center gap-1"
+                          title="Test OpenGraph Bot"
+                        >
+                          <Bot className="w-3 h-3 text-emerald-400" /> Test OG
+                        </button>
+                        <button
+                          onClick={() => onOpenQR(link.slug, link.destination_url)}
+                          className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] font-medium inline-flex items-center gap-1"
+                          title="Tạo mã QR"
+                        >
+                          <QrCode className="w-3 h-3 text-blue-400" /> QR
+                        </button>
+                        <button
+                          onClick={() => handleDelete(link.id, link.slug)}
+                          className="p-1.5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 rounded inline-flex items-center"
+                          title="Xóa link"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -382,10 +549,10 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
                     <Sliders className="w-4 h-4 text-purple-400" />
                     <div>
                       <span className="text-xs font-bold text-slate-200 block">
-                        Tùy chọn Nâng cao (Advance: og:url, og:type)
+                        Tùy chọn Nâng cao (Advance: og:url, og:type, og:site_name)
                       </span>
                       <span className="text-[10px] text-slate-400 block">
-                        Tùy chỉnh thẻ meta og:url và og:type
+                        Tùy chỉnh thẻ meta og:url, og:type và og:site_name
                       </span>
                     </div>
                   </div>
@@ -398,6 +565,20 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
 
                 {showEditAdvanced && (
                   <div className="p-3 border-t border-slate-800 space-y-3 bg-slate-900">
+                    {/* og:site_name */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                        OpenGraph Site Name (og:site_name)
+                      </label>
+                      <input
+                        type="text"
+                        value={editOgSiteName}
+                        onChange={(e) => setEditOgSiteName(e.target.value)}
+                        placeholder="Ví dụ: Báo Mới, YouTube, Netflix..."
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+
                     {/* og:url */}
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
@@ -450,6 +631,39 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Status Toggle in Edit Modal */}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                  Trạng Thái Link
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditStatus('active')}
+                    className={`py-2 px-3 rounded-xl border text-xs font-medium flex items-center justify-center gap-1.5 transition ${
+                      editStatus === 'active'
+                        ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 font-bold'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-800'
+                    }`}
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Hoạt động (Active)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditStatus('disabled')}
+                    className={`py-2 px-3 rounded-xl border text-xs font-medium flex items-center justify-center gap-1.5 transition ${
+                      editStatus === 'disabled'
+                        ? 'bg-red-500/20 border-red-500/50 text-red-300 font-bold'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-800'
+                    }`}
+                  >
+                    <Power className="w-3.5 h-3.5" />
+                    <span>Tắt (Disabled)</span>
+                  </button>
+                </div>
               </div>
 
               {/* Expiration Date Toggle */}
@@ -520,6 +734,137 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
               >
                 <Save className="w-4 h-4" />
                 <span>{savingEdit ? 'Đang lưu...' : 'Lưu Thay Đổi'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Bulk Edit Modal */}
+      {showBulkModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl p-5 space-y-4 text-slate-100 animate-fadeIn">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="font-bold text-base flex items-center gap-2 text-purple-400">
+                  <Sliders className="w-4 h-4" /> Quản Trị Viên: Sửa Hàng Loạt ({selectedIds.length} Link)
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Thay đổi trạng thái hoạt động hoặc thời gian hết hạn cho các link được chọn
+                </p>
+              </div>
+              <button
+                onClick={() => setShowBulkModal(false)}
+                className="text-slate-400 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* 1. Trạng thái Link */}
+              <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+                <label className="block text-[11px] font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Power className="w-3.5 h-3.5 text-purple-400" />
+                  1. Trạng thái Link (Bulk Status)
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'keep', label: 'Giữ nguyên', desc: 'Không đổi' },
+                    { id: 'active', label: 'Hoạt động', desc: 'Cho phép truy cập' },
+                    { id: 'disabled', label: 'Vô hiệu hóa', desc: 'Tắt link' }
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setBulkStatus(item.id as any)}
+                      className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between ${
+                        bulkStatus === item.id
+                          ? 'bg-purple-900/40 border-purple-500 text-purple-200 font-bold'
+                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'
+                      }`}
+                    >
+                      <span className="text-xs">{item.label}</span>
+                      <span className="text-[10px] text-slate-400 font-normal">{item.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 2. Thời gian hết hạn */}
+              <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+                <label className="block text-[11px] font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-purple-400" />
+                  2. Thời gian hết hạn (Bulk Expiration)
+                </label>
+
+                <div className="space-y-2.5 pt-1">
+                  <label className="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer select-none">
+                    <input
+                      type="radio"
+                      name="bulkExp"
+                      checked={bulkExpirationOption === 'keep'}
+                      onChange={() => setBulkExpirationOption('keep')}
+                      className="accent-purple-500 w-4 h-4 cursor-pointer"
+                    />
+                    <span>Giữ nguyên thời gian hết hạn hiện tại</span>
+                  </label>
+
+                  <label className="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer select-none">
+                    <input
+                      type="radio"
+                      name="bulkExp"
+                      checked={bulkExpirationOption === 'remove'}
+                      onChange={() => setBulkExpirationOption('remove')}
+                      className="accent-purple-500 w-4 h-4 cursor-pointer"
+                    />
+                    <span className="text-emerald-400 font-medium">Bỏ hết hạn (Bỏ hạn dùng - Hạn vĩnh viễn)</span>
+                  </label>
+
+                  <label className="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer select-none">
+                    <input
+                      type="radio"
+                      name="bulkExp"
+                      checked={bulkExpirationOption === 'set'}
+                      onChange={() => setBulkExpirationOption('set')}
+                      className="accent-purple-500 w-4 h-4 cursor-pointer"
+                    />
+                    <span>Đặt ngày giờ hết hạn chung cho tất cả</span>
+                  </label>
+
+                  {bulkExpirationOption === 'set' && (
+                    <div className="pt-2 pl-6">
+                      <div className="relative">
+                        <Calendar className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          type="datetime-local"
+                          value={bulkExpiresAt}
+                          onChange={(e) => setBulkExpiresAt(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-purple-500"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowBulkModal(false)}
+                className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyBulk}
+                disabled={processingBulk}
+                className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 shadow-lg shadow-purple-600/30"
+              >
+                <Save className="w-4 h-4" />
+                <span>{processingBulk ? 'Đang lưu...' : `Áp Dụng (${selectedIds.length} Link)`}</span>
               </button>
             </div>
           </div>

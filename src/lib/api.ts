@@ -212,6 +212,7 @@ export const api = {
     image?: string;
     og_url?: string;
     og_type?: string;
+    og_site_name?: string;
     expires_at?: string | null;
   }): Promise<LinkItem> {
     const data = await this.request('/api/links', {
@@ -259,6 +260,25 @@ export const api = {
     const path = search ? `/api/admin/links?search=${encodeURIComponent(search)}` : '/api/admin/links';
     const data = await this.request(path);
     return data.links;
+  },
+
+  async bulkUpdateLinks(payload: {
+    ids: string[];
+    status?: 'active' | 'disabled';
+    expires_at?: string | null;
+    remove_expiration?: boolean;
+  }): Promise<{ message: string; updatedCount: number }> {
+    return this.request('/api/admin/links/bulk-update', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  },
+
+  async bulkDeleteLinks(ids: string[]): Promise<{ message: string; deletedCount: number }> {
+    return this.request('/api/admin/links/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ ids })
+    });
   },
 
   async getAdminUsers(): Promise<User[]> {

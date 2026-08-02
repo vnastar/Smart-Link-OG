@@ -9,6 +9,7 @@ interface OGPreviewCardProps {
   slug?: string;
   ogUrl?: string;
   ogType?: string;
+  ogSiteName?: string;
 }
 
 export const OGPreviewCard: React.FC<OGPreviewCardProps> = ({
@@ -18,7 +19,8 @@ export const OGPreviewCard: React.FC<OGPreviewCardProps> = ({
   domain = 'https://sls.vnastar.com',
   slug = 'video01',
   ogUrl,
-  ogType
+  ogType,
+  ogSiteName
 }) => {
   const [activePlatform, setActivePlatform] = useState<'facebook' | 'zalo' | 'telegram' | 'twitter'>('facebook');
 
@@ -27,6 +29,7 @@ export const OGPreviewCard: React.FC<OGPreviewCardProps> = ({
   const displayImg = image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80';
   const fullUrl = ogUrl && ogUrl.trim() ? ogUrl.trim() : `${domain.replace(/\/$/, '')}/${slug || 'preview'}`;
   const displayType = ogType && ogType.trim() ? ogType.trim() : 'website';
+  const displaySiteName = ogSiteName && ogSiteName.trim() ? ogSiteName.trim() : '';
   const hostOnly = domain.replace(/^https?:\/\//, '');
 
   return (
@@ -128,8 +131,15 @@ export const OGPreviewCard: React.FC<OGPreviewCardProps> = ({
               <Globe className="w-3 h-3 text-indigo-600" />
               {hostOnly}
             </span>
-            <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded text-[10px] font-semibold font-mono">
-              og:type={displayType}
+            <span className="flex items-center gap-1.5 flex-wrap">
+              <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded text-[10px] font-semibold font-mono">
+                og:type={displayType}
+              </span>
+              {displaySiteName && (
+                <span className="bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5 rounded text-[10px] font-semibold font-mono">
+                  og:site_name={displaySiteName}
+                </span>
+              )}
             </span>
           </div>
           <h4 className="font-semibold text-slate-900 text-sm line-clamp-2 leading-snug mb-1">

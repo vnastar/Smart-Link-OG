@@ -293,7 +293,7 @@ app.post('/api/links', requireAuth, (req: Request, res: Response) => {
     });
   }
 
-  let { destination_url, slug, title, description, image, expires_at, og_url, og_type } = req.body;
+  let { destination_url, slug, title, description, image, expires_at, og_url, og_type, og_site_name } = req.body;
 
   if (!destination_url) {
     return res.status(400).json({ error: 'Vui lòng nhập đường dẫn gốc (Destination URL)' });
@@ -324,6 +324,7 @@ app.post('/api/links', requireAuth, (req: Request, res: Response) => {
     image: image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80',
     og_url: og_url || '',
     og_type: og_type || 'website',
+    og_site_name: og_site_name || '',
     expires_at: expires_at || null
   });
 
@@ -345,7 +346,7 @@ app.put('/api/links/:id', requireAuth, (req: Request, res: Response) => {
     return res.status(403).json({ error: 'Bạn không có quyền chỉnh sửa link này' });
   }
 
-  const { destination_url, title, description, image, expires_at, og_url, og_type } = req.body;
+  const { destination_url, title, description, image, expires_at, og_url, og_type, og_site_name, status } = req.body;
 
   const updated = db.updateLink(linkId, {
     destination_url: destination_url || existing.destination_url,
@@ -354,6 +355,8 @@ app.put('/api/links/:id', requireAuth, (req: Request, res: Response) => {
     image: image !== undefined ? image : existing.image,
     og_url: og_url !== undefined ? og_url : existing.og_url,
     og_type: og_type !== undefined ? og_type : existing.og_type,
+    og_site_name: og_site_name !== undefined ? og_site_name : existing.og_site_name,
+    status: status !== undefined ? status : existing.status,
     expires_at: expires_at !== undefined ? expires_at : existing.expires_at
   });
 
@@ -440,7 +443,8 @@ app.post('/api/simulate-bot', (req: Request, res: Response) => {
       url: fullUrl,
       siteName: settings.site_name,
       ogType: link.og_type,
-      ogUrl: link.og_url
+      ogUrl: link.og_url,
+      ogSiteName: link.og_site_name
     });
     return res.json({
       is_bot: true,
@@ -502,6 +506,62 @@ app.get('/api/admin/links', requireAdmin, (req: Request, res: Response) => {
   }
 
   return res.json({ links });
+});
+
+app.post('/api/admin/links/bulk-update', requireAdmin, (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const { ids, status, expires_at, remove_expiration } = req.body;
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'Vui lòng chọn ít nhất 1 link để cập nhật' });
+  }
+
+  let updatedCount = 0;
+  for (const id of ids) {
+    const existing = db.getLinkById(id);
+    if (!existing) continue;
+
+    const updates: any = {};
+    if (status !== undefined) {
+      updates.status = status;
+    }
+    if (remove_expiration) {
+      updates.expires_at = null;
+    } else if (expires_at !== undefined) {
+      updates.expires_at = expires_at;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      db.updateLink(id, updates);
+      updatedCount++;
+    }
+  }
+
+  db.addLog(user.id, 'BULK_UPDATE_LINKS', `Cập nhật hàng loạt ${updatedCount} links`, req.ip || '127.0.0.1');
+
+  return res.json({ message: `Cập nhật thành công ${updatedCount} link`, updatedCount });
+});
+
+app.post('/api/admin/links/bulk-delete', requireAdmin, (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const { ids } = req.body;
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'Vui lòng chọn ít nhất 1 link để xóa' });
+  }
+
+  let deletedCount = 0;
+  for (const id of ids) {
+    const existing = db.getLinkById(id);
+    if (existing) {
+      db.deleteLink(id);
+      deletedCount++;
+    }
+  }
+
+  db.addLog(user.id, 'BULK_DELETE_LINKS', `Xóa hàng loạt ${deletedCount} links`, req.ip || '127.0.0.1');
+
+  return res.json({ message: `Đã xóa thành công ${deletedCount} link`, deletedCount });
 });
 
 app.get('/api/admin/users', requireAdmin, (req: Request, res: Response) => {
@@ -683,6 +743,20 @@ app.get('/:slug', (req: Request, res: Response, next: NextFunction) => {
     return next(); // Pass to Vite/React SPA router 404 handler
   }
 
+  // Check Link Status
+  if (link.status === 'disabled') {
+    return res.status(403).send(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>Link Vô Hiệu Hóa</title><meta charset="utf-8"></head>
+      <body style="font-family: sans-serif; text-align: center; padding: 50px; background: #0f172a; color: #f8fafc;">
+        <h2 style="color: #f43f5e;">Liên kết này đã bị vô hiệu hóa (Disabled)</h2>
+        <p>Liên kết <code>/${link.slug}</code> đã bị tạm khóa hoặc tắt bởi Quản trị viên.</p>
+      </body>
+      </html>
+    `);
+  }
+
   // Check Expiration Date
   if (link.expires_at) {
     const exp = new Date(link.expires_at).getTime();
@@ -737,7 +811,8 @@ app.get('/:slug', (req: Request, res: Response, next: NextFunction) => {
       url: fullUrl,
       siteName: settings.site_name,
       ogType: link.og_type,
-      ogUrl: link.og_url
+      ogUrl: link.og_url,
+      ogSiteName: link.og_site_name
     });
     return res.status(200).set('Content-Type', 'text/html; charset=utf-8').send(html);
   }

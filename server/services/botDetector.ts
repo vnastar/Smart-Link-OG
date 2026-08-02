@@ -59,15 +59,16 @@ export class BotDetector {
     siteName: string;
     ogType?: string;
     ogUrl?: string;
+    ogSiteName?: string;
   }): string {
-    const { title, description, image, url, siteName, ogType, ogUrl } = options;
+    const { title, description, image, url, siteName, ogType, ogUrl, ogSiteName } = options;
 
     const safeTitle = this.escapeHtml(title || siteName);
     const safeDesc = this.escapeHtml(description || '');
     const safeImage = this.escapeHtml(image || '');
     const safeUrl = this.escapeHtml((ogUrl && ogUrl.trim()) ? ogUrl.trim() : url);
     const safeType = this.escapeHtml((ogType && ogType.trim()) ? ogType.trim() : 'website');
-    const safeSite = this.escapeHtml(siteName);
+    const safeSite = this.escapeHtml((ogSiteName && ogSiteName.trim()) ? ogSiteName.trim() : siteName);
 
     return `<!DOCTYPE html>
 <html lang="vi">

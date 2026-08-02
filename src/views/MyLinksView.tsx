@@ -34,6 +34,7 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
   const [editDest, setEditDest] = useState('');
   const [editOgUrl, setEditOgUrl] = useState('');
   const [editOgType, setEditOgType] = useState('website');
+  const [editOgSiteName, setEditOgSiteName] = useState('');
   const [showEditAdvanced, setShowEditAdvanced] = useState(false);
   const [editExpiresAt, setEditExpiresAt] = useState('');
   const [hasEditExpiration, setHasEditExpiration] = useState(false);
@@ -118,7 +119,8 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
     setEditDest(link.destination_url);
     setEditOgUrl(link.og_url || '');
     setEditOgType(link.og_type || 'website');
-    setShowEditAdvanced(!!(link.og_url || (link.og_type && link.og_type !== 'website')));
+    setEditOgSiteName(link.og_site_name || '');
+    setShowEditAdvanced(!!(link.og_url || link.og_site_name || (link.og_type && link.og_type !== 'website')));
 
     if (link.expires_at) {
       const d = new Date(link.expires_at);
@@ -142,6 +144,7 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
         destination_url: editDest,
         og_url: editOgUrl.trim(),
         og_type: editOgType.trim() || 'website',
+        og_site_name: editOgSiteName.trim(),
         expires_at: hasEditExpiration && editExpiresAt ? editExpiresAt : null
       });
       setEditingLink(null);
@@ -463,10 +466,10 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
                     <Sliders className="w-4 h-4 text-indigo-600" />
                     <div>
                       <span className="text-xs font-bold text-slate-800 block">
-                        Tùy chọn Nâng cao (Advance: og:url, og:type)
+                        Tùy chọn Nâng cao (Advance: og:url, og:type, og:site_name)
                       </span>
                       <span className="text-[10px] text-slate-500 block">
-                        Tùy chỉnh thẻ meta og:url và og:type
+                        Tùy chỉnh thẻ meta og:url, og:type và og:site_name
                       </span>
                     </div>
                   </div>
@@ -479,6 +482,20 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
 
                 {showEditAdvanced && (
                   <div className="p-3 border-t border-slate-200 space-y-3 bg-white">
+                    {/* og:site_name */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                        OpenGraph Site Name (og:site_name)
+                      </label>
+                      <input
+                        type="text"
+                        value={editOgSiteName}
+                        onChange={(e) => setEditOgSiteName(e.target.value)}
+                        placeholder="Ví dụ: Báo Mới, YouTube, Netflix..."
+                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+
                     {/* og:url */}
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-600 uppercase tracking-wider mb-1">

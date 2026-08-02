@@ -22,6 +22,7 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
   const [image, setImage] = useState('');
   const [ogUrl, setOgUrl] = useState('');
   const [ogType, setOgType] = useState('website');
+  const [ogSiteName, setOgSiteName] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [expiresAt, setExpiresAt] = useState('');
   const [hasExpiration, setHasExpiration] = useState(false);
@@ -129,6 +130,7 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
         image,
         og_url: ogUrl.trim(),
         og_type: ogType.trim() || 'website',
+        og_site_name: ogSiteName.trim(),
         expires_at: hasExpiration && expiresAt ? expiresAt : null
       });
 
@@ -225,6 +227,7 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
                 setImage('');
                 setOgUrl('');
                 setOgType('website');
+                setOgSiteName('');
                 setShowAdvanced(false);
                 setExpiresAt('');
                 setHasExpiration(false);
@@ -393,10 +396,10 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
                     <Sliders className="w-4 h-4 text-indigo-600" />
                     <div>
                       <span className="text-xs font-bold text-slate-800 block">
-                        Tùy chọn Nâng cao (Advanced: og:url, og:type)
+                        Tùy chọn Nâng cao (Advanced: og:url, og:type, og:site_name)
                       </span>
                       <span className="text-[11px] text-slate-500 block">
-                        Tùy chỉnh thẻ meta og:url và og:type cho Facebook & Zalo
+                        Tùy chỉnh thẻ meta og:url, og:type và og:site_name cho Facebook & Zalo
                       </span>
                     </div>
                   </div>
@@ -409,6 +412,23 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
 
                 {showAdvanced && (
                   <div className="p-3.5 border-t border-slate-200 space-y-3.5 bg-white">
+                    {/* og:site_name */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                        OpenGraph Site Name (og:site_name)
+                      </label>
+                      <input
+                        type="text"
+                        value={ogSiteName}
+                        onChange={(e) => setOgSiteName(e.target.value)}
+                        placeholder="Ví dụ: Báo Mới, YouTube, Netflix... (Mặc định: Tên hệ thống)"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[40px]"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Tùy chỉnh tên thương hiệu/trang web hiển thị trong thẻ OpenGraph.
+                      </p>
+                    </div>
+
                     {/* og:url */}
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-600 uppercase tracking-wider mb-1">
@@ -542,6 +562,7 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
               slug={slug || 'P8Hsj9'}
               ogUrl={ogUrl}
               ogType={ogType}
+              ogSiteName={ogSiteName}
             />
           </div>
         </div>

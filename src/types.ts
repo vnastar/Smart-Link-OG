@@ -24,7 +24,9 @@ export interface LinkItem {
   image: string;
   og_url?: string;
   og_type?: string;
+  og_site_name?: string;
   clicks: number;
+  status?: 'active' | 'disabled';
   expires_at?: string | null;
   created_at: string;
   updated_at: string;

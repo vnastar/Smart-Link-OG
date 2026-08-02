@@ -93,6 +93,7 @@ const SEED_DATA: DatabaseSchema = {
       description: 'Công cụ rút gọn link thông minh hiển thị ảnh OpenGraph trên Facebook, Zalo, Telegram cực chuẩn.',
       image: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80',
       clicks: 42,
+      status: 'active',
       expires_at: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -107,6 +108,7 @@ const SEED_DATA: DatabaseSchema = {
       description: 'Cập nhật tin tức mới nhất trong ngày tại Việt Nam và thế giới.',
       image: 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80',
       clicks: 15,
+      status: 'active',
       expires_at: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -284,6 +286,7 @@ class DBManager {
       id: 'lnk_' + Math.random().toString(36).substr(2, 9),
       user_name: user ? user.username : 'Unknown',
       clicks: 0,
+      status: link.status || 'active',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
