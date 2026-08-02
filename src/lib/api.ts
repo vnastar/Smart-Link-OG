@@ -297,6 +297,9 @@ export const api = {
     daily_limit?: number;
     status?: UserStatus;
     must_change_password?: boolean;
+    default_expiration_days?: number | null;
+    allow_unlimited_expiration?: boolean | null;
+    max_expiration_days?: number | null;
   }): Promise<{ message: string; user: User }> {
     return this.request('/api/admin/users', {
       method: 'POST',

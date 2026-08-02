@@ -303,35 +303,49 @@ app.post('/api/links', requireAuth, (req: Request, res: Response) => {
     destination_url = 'https://' + destination_url;
   }
 
-  // Handle Admin Expiration Policy Settings
+  // Handle Admin / Per-User Expiration Policy Settings
   const settings = db.getSettings();
+  const userRecord = db.getUserStoreById(user.id);
+
+  const effectiveDefaultDays = (userRecord?.default_expiration_days !== undefined && userRecord?.default_expiration_days !== null)
+    ? userRecord.default_expiration_days
+    : (settings.default_expiration_days ?? 0);
+
+  const effectiveAllowUnlimited = (userRecord?.allow_unlimited_expiration !== undefined && userRecord?.allow_unlimited_expiration !== null)
+    ? userRecord.allow_unlimited_expiration
+    : (settings.allow_unlimited_expiration ?? true);
+
+  const effectiveMaxDays = (userRecord?.max_expiration_days !== undefined && userRecord?.max_expiration_days !== null)
+    ? userRecord.max_expiration_days
+    : (settings.max_expiration_days ?? 0);
+
   let finalExpiresAt: string | null = expires_at || null;
 
-  // Check if admin disallows unlimited link expiration
-  if (!finalExpiresAt && settings.allow_unlimited_expiration === false) {
-    if (settings.default_expiration_days && settings.default_expiration_days > 0) {
+  // Check if admin disallows unlimited link expiration for this user
+  if (!finalExpiresAt && effectiveAllowUnlimited === false) {
+    if (effectiveDefaultDays > 0) {
       const expDate = new Date();
-      expDate.setDate(expDate.getDate() + settings.default_expiration_days);
+      expDate.setDate(expDate.getDate() + effectiveDefaultDays);
       finalExpiresAt = expDate.toISOString();
     } else {
-      return res.status(400).json({ error: 'Quản trị viên yêu cầu phải cài đặt thời gian hết hạn cho liên kết (Không cho phép vĩnh viễn).' });
+      return res.status(400).json({ error: 'Quản trị viên yêu cầu tài khoản này phải cài đặt thời gian hết hạn cho liên kết (Không cho phép vĩnh viễn).' });
     }
   }
 
-  // If user didn't specify an expiration, but admin set a default_expiration_days > 0
-  if (!finalExpiresAt && settings.default_expiration_days && settings.default_expiration_days > 0) {
+  // If user didn't specify an expiration, but effective default_expiration_days > 0
+  if (!finalExpiresAt && effectiveDefaultDays > 0) {
     const expDate = new Date();
-    expDate.setDate(expDate.getDate() + settings.default_expiration_days);
+    expDate.setDate(expDate.getDate() + effectiveDefaultDays);
     finalExpiresAt = expDate.toISOString();
   }
 
   // Check max_expiration_days constraint if user specified a date
-  if (finalExpiresAt && settings.max_expiration_days && settings.max_expiration_days > 0) {
-    const maxAllowedMs = Date.now() + settings.max_expiration_days * 24 * 60 * 60 * 1000;
+  if (finalExpiresAt && effectiveMaxDays > 0) {
+    const maxAllowedMs = Date.now() + effectiveMaxDays * 24 * 60 * 60 * 1000;
     const userExpMs = new Date(finalExpiresAt).getTime();
     if (userExpMs > maxAllowedMs + 60000) {
       return res.status(400).json({
-        error: `Thời gian hết hạn tối đa được cho phép là ${settings.max_expiration_days} ngày kể từ hôm nay.`
+        error: `Thời gian hết hạn tối đa được cho phép là ${effectiveMaxDays} ngày kể từ hôm nay.`
       });
     }
   }
@@ -617,7 +631,10 @@ app.get('/api/admin/users', requireAdmin, (req: Request, res: Response) => {
 });
 
 app.post('/api/admin/users', requireAdmin, (req: Request, res: Response) => {
-  const { username, email, password, role, daily_limit, status, must_change_password } = req.body;
+  const {
+    username, email, password, role, daily_limit, status, must_change_password,
+    default_expiration_days, allow_unlimited_expiration, max_expiration_days
+  } = req.body;
 
   if (!username || !email || !password) {
     return res.status(400).json({ error: 'Vui lòng điền đầy đủ Tên đăng nhập, Email và Mật khẩu' });
@@ -640,7 +657,10 @@ app.post('/api/admin/users', requireAdmin, (req: Request, res: Response) => {
     role: role === 'admin' ? 'admin' : 'user',
     daily_limit: typeof daily_limit === 'number' ? daily_limit : parseInt(daily_limit || '10', 10),
     status: status === 'blocked' ? 'blocked' : 'active',
-    must_change_password: must_change_password !== undefined ? !!must_change_password : true
+    must_change_password: must_change_password !== undefined ? !!must_change_password : true,
+    default_expiration_days: default_expiration_days !== undefined && default_expiration_days !== null ? Number(default_expiration_days) : null,
+    allow_unlimited_expiration: allow_unlimited_expiration !== undefined && allow_unlimited_expiration !== null ? Boolean(allow_unlimited_expiration) : null,
+    max_expiration_days: max_expiration_days !== undefined && max_expiration_days !== null ? Number(max_expiration_days) : null
   });
 
   db.addLog((req as any).user.id, 'ADMIN_CREATE_USER', `Tạo tài khoản mới: ${newUser.username} (${newUser.email})`, req.ip || '127.0.0.1');
@@ -650,13 +670,19 @@ app.post('/api/admin/users', requireAdmin, (req: Request, res: Response) => {
 
 app.put('/api/admin/users/:id', requireAdmin, (req: Request, res: Response) => {
   const userId = req.params.id;
-  const { role, daily_limit, status, must_change_password } = req.body;
+  const {
+    role, daily_limit, status, must_change_password,
+    default_expiration_days, allow_unlimited_expiration, max_expiration_days
+  } = req.body;
 
   const updated = db.updateUser(userId, {
     ...(role !== undefined && { role }),
     ...(daily_limit !== undefined && { daily_limit: parseInt(daily_limit, 10) }),
     ...(status !== undefined && { status }),
-    ...(must_change_password !== undefined && { must_change_password })
+    ...(must_change_password !== undefined && { must_change_password }),
+    default_expiration_days: default_expiration_days !== undefined && default_expiration_days !== null ? Number(default_expiration_days) : null,
+    allow_unlimited_expiration: allow_unlimited_expiration !== undefined && allow_unlimited_expiration !== null ? Boolean(allow_unlimited_expiration) : null,
+    max_expiration_days: max_expiration_days !== undefined && max_expiration_days !== null ? Number(max_expiration_days) : null
   });
 
   db.addLog((req as any).user.id, 'ADMIN_UPDATE_USER', `Cập nhật tài khoản ID: ${userId}`, req.ip || '127.0.0.1');
@@ -765,6 +791,20 @@ app.get('/api/admin/logs', requireAdmin, (req: Request, res: Response) => {
 // Public Site Config for Frontend initial load
 app.get('/api/public/config', (req: Request, res: Response) => {
   const settings = db.getSettings();
+  const authUser = getAuthUser(req);
+
+  const default_expiration_days = (authUser && authUser.default_expiration_days !== undefined && authUser.default_expiration_days !== null)
+    ? authUser.default_expiration_days
+    : (settings.default_expiration_days ?? 0);
+
+  const allow_unlimited_expiration = (authUser && authUser.allow_unlimited_expiration !== undefined && authUser.allow_unlimited_expiration !== null)
+    ? authUser.allow_unlimited_expiration
+    : (settings.allow_unlimited_expiration ?? true);
+
+  const max_expiration_days = (authUser && authUser.max_expiration_days !== undefined && authUser.max_expiration_days !== null)
+    ? authUser.max_expiration_days
+    : (settings.max_expiration_days ?? 0);
+
   return res.json({
     site_name: settings.site_name,
     site_domain: settings.site_domain,
@@ -774,14 +814,28 @@ app.get('/api/public/config', (req: Request, res: Response) => {
     favicon: settings.favicon,
     cloudflare_turnstile_enable: settings.cloudflare_turnstile_enable ?? false,
     cloudflare_site_key: settings.cloudflare_site_key || '',
-    default_expiration_days: settings.default_expiration_days ?? 0,
-    allow_unlimited_expiration: settings.allow_unlimited_expiration ?? true,
-    max_expiration_days: settings.max_expiration_days ?? 0
+    default_expiration_days,
+    allow_unlimited_expiration,
+    max_expiration_days
   });
 });
 
 app.get('/api/public-settings', (req: Request, res: Response) => {
   const settings = db.getSettings();
+  const authUser = getAuthUser(req);
+
+  const default_expiration_days = (authUser && authUser.default_expiration_days !== undefined && authUser.default_expiration_days !== null)
+    ? authUser.default_expiration_days
+    : (settings.default_expiration_days ?? 0);
+
+  const allow_unlimited_expiration = (authUser && authUser.allow_unlimited_expiration !== undefined && authUser.allow_unlimited_expiration !== null)
+    ? authUser.allow_unlimited_expiration
+    : (settings.allow_unlimited_expiration ?? true);
+
+  const max_expiration_days = (authUser && authUser.max_expiration_days !== undefined && authUser.max_expiration_days !== null)
+    ? authUser.max_expiration_days
+    : (settings.max_expiration_days ?? 0);
+
   return res.json({
     site_name: settings.site_name,
     site_domain: settings.site_domain,
@@ -791,9 +845,9 @@ app.get('/api/public-settings', (req: Request, res: Response) => {
     favicon: settings.favicon,
     cloudflare_turnstile_enable: settings.cloudflare_turnstile_enable ?? false,
     cloudflare_site_key: settings.cloudflare_site_key || '',
-    default_expiration_days: settings.default_expiration_days ?? 0,
-    allow_unlimited_expiration: settings.allow_unlimited_expiration ?? true,
-    max_expiration_days: settings.max_expiration_days ?? 0
+    default_expiration_days,
+    allow_unlimited_expiration,
+    max_expiration_days
   });
 });
 

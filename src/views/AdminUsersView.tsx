@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { User, UserRole, UserStatus } from '../types.js';
-import { Users, Search, KeyRound, Shield, Ban, CheckCircle2, Trash2, Edit3, Save, X, UserPlus, Lock, Mail, UserCheck } from 'lucide-react';
+import { Users, Search, KeyRound, Shield, Ban, CheckCircle2, Trash2, Edit3, Save, X, UserPlus, Lock, Mail, UserCheck, Clock } from 'lucide-react';
 
 export const AdminUsersView: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -19,12 +19,20 @@ export const AdminUsersView: React.FC = () => {
   const [newMustChangePwd, setNewMustChangePwd] = useState(true);
   const [creating, setCreating] = useState(false);
 
-  // Editing User Limit / Role modal
+  // Editing User Limit / Role / Expiration modal
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editRole, setEditRole] = useState<UserRole>('user');
   const [editLimit, setEditLimit] = useState(3);
   const [editStatus, setEditStatus] = useState<UserStatus>('active');
+  const [editDefaultExpDays, setEditDefaultExpDays] = useState<number | ''>('');
+  const [editAllowUnlimited, setEditAllowUnlimited] = useState<'default' | 'allow' | 'disallow'>('default');
+  const [editMaxExpDays, setEditMaxExpDays] = useState<number | ''>('');
   const [saving, setSaving] = useState(false);
+
+  // Create User modal link expiration state
+  const [newDefaultExpDays, setNewDefaultExpDays] = useState<number | ''>('');
+  const [newAllowUnlimited, setNewAllowUnlimited] = useState<'default' | 'allow' | 'disallow'>('default');
+  const [newMaxExpDays, setNewMaxExpDays] = useState<number | ''>('');
 
   const loadUsers = async () => {
     setLoading(true);
@@ -71,6 +79,15 @@ export const AdminUsersView: React.FC = () => {
     setEditRole(u.role);
     setEditLimit(u.daily_limit);
     setEditStatus(u.status);
+    setEditDefaultExpDays(u.default_expiration_days ?? '');
+    setEditAllowUnlimited(
+      u.allow_unlimited_expiration === undefined || u.allow_unlimited_expiration === null
+        ? 'default'
+        : u.allow_unlimited_expiration
+        ? 'allow'
+        : 'disallow'
+    );
+    setEditMaxExpDays(u.max_expiration_days ?? '');
   };
 
   const saveEditUser = async () => {
@@ -80,7 +97,10 @@ export const AdminUsersView: React.FC = () => {
       await api.updateAdminUser(editingUser.id, {
         role: editRole,
         daily_limit: editLimit,
-        status: editStatus
+        status: editStatus,
+        default_expiration_days: editDefaultExpDays === '' ? null : Number(editDefaultExpDays),
+        allow_unlimited_expiration: editAllowUnlimited === 'default' ? null : editAllowUnlimited === 'allow',
+        max_expiration_days: editMaxExpDays === '' ? null : Number(editMaxExpDays)
       });
       setEditingUser(null);
       loadUsers();
@@ -107,7 +127,10 @@ export const AdminUsersView: React.FC = () => {
         role: newRole,
         daily_limit: newLimit,
         status: newStatus,
-        must_change_password: newMustChangePwd
+        must_change_password: newMustChangePwd,
+        default_expiration_days: newDefaultExpDays === '' ? null : Number(newDefaultExpDays),
+        allow_unlimited_expiration: newAllowUnlimited === 'default' ? null : newAllowUnlimited === 'allow',
+        max_expiration_days: newMaxExpDays === '' ? null : Number(newMaxExpDays)
       });
 
       alert(res.message || 'Tạo người dùng thành công!');
@@ -119,6 +142,9 @@ export const AdminUsersView: React.FC = () => {
       setNewLimit(10);
       setNewStatus('active');
       setNewMustChangePwd(true);
+      setNewDefaultExpDays('');
+      setNewAllowUnlimited('default');
+      setNewMaxExpDays('');
       loadUsers();
     } catch (err: any) {
       alert(err.message || 'Tạo tài khoản người dùng thất bại');
@@ -182,6 +208,7 @@ export const AdminUsersView: React.FC = () => {
                   <th className="p-3 font-semibold">Username / Email</th>
                   <th className="p-3 font-semibold">Vai trò (Role)</th>
                   <th className="p-3 font-semibold">Daily Limit</th>
+                  <th className="p-3 font-semibold">Chính Sách Hết Hạn</th>
                   <th className="p-3 font-semibold">Trạng thái</th>
                   <th className="p-3 font-semibold">Force Change Pwd</th>
                   <th className="p-3 font-semibold text-right">Thao tác Admin</th>
@@ -209,6 +236,34 @@ export const AdminUsersView: React.FC = () => {
 
                     <td className="p-3 font-mono font-bold text-indigo-600">
                       {u.daily_limit} link/ngày
+                    </td>
+
+                    <td className="p-3 text-[11px]">
+                      {u.default_expiration_days || u.allow_unlimited_expiration !== undefined && u.allow_unlimited_expiration !== null || u.max_expiration_days ? (
+                        <div className="space-y-0.5">
+                          {u.default_expiration_days ? (
+                            <span className="inline-block bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-mono font-medium text-[10px] mr-1">
+                              Mặc định: {u.default_expiration_days} ngày
+                            </span>
+                          ) : null}
+                          {u.allow_unlimited_expiration === false ? (
+                            <span className="inline-block bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-mono font-medium text-[10px] mr-1">
+                              Bắt buộc hết hạn
+                            </span>
+                          ) : u.allow_unlimited_expiration === true ? (
+                            <span className="inline-block bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-mono font-medium text-[10px] mr-1">
+                              Cho phép vĩnh viễn
+                            </span>
+                          ) : null}
+                          {u.max_expiration_days ? (
+                            <span className="inline-block bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-mono font-medium text-[10px]">
+                              Max: {u.max_expiration_days} ngày
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 italic">Theo hệ thống</span>
+                      )}
                     </td>
 
                     <td className="p-3">
@@ -321,6 +376,61 @@ export const AdminUsersView: React.FC = () => {
                   <option value="active">Active (Hoạt động)</option>
                   <option value="blocked">Blocked (Bị khóa)</option>
                 </select>
+              </div>
+
+              {/* Per-User Link Expiration Settings */}
+              <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-3.5 space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900">
+                  <Clock className="w-4 h-4 text-indigo-600" />
+                  <span>Cấu Hình Thời Gian Hết Hạn Link Cho User Này</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Thời Hạn Mặc Định (ngày)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="Mặc định theo Hệ Thống"
+                      value={editDefaultExpDays}
+                      onChange={(e) => setEditDefaultExpDays(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                    />
+                    <span className="text-[10px] text-slate-400 block mt-0.5">Để trống = Theo cài đặt hệ thống</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Thời Hạn Tối Đa (ngày)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="Mặc định theo Hệ Thống"
+                      value={editMaxExpDays}
+                      onChange={(e) => setEditMaxExpDays(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                    />
+                    <span className="text-[10px] text-slate-400 block mt-0.5">Để trống = Theo cài đặt hệ thống</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                    Cho Phép Tạo Link Vĩnh Viễn (Không Hết Hạn)
+                  </label>
+                  <select
+                    value={editAllowUnlimited}
+                    onChange={(e) => setEditAllowUnlimited(e.target.value as any)}
+                    className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="default">-- Mặc Định Theo Hệ Thống --</option>
+                    <option value="allow">Cho phép Vĩnh Viễn</option>
+                    <option value="disallow">Bắt buộc phải có ngày Hết Hạn</option>
+                  </select>
+                </div>
               </div>
 
               <div className="flex gap-2 pt-2">
@@ -464,6 +574,61 @@ export const AdminUsersView: React.FC = () => {
                   >
                     <option value="active">Active (Hoạt động)</option>
                     <option value="blocked">Blocked (Khóa)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Per-User Link Expiration Settings */}
+              <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-3.5 space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900">
+                  <Clock className="w-4 h-4 text-indigo-600" />
+                  <span>Chính Sách Thời Gian Hết Hạn Link Tùy Chỉnh (Tùy chọn)</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Thời Hạn Mặc Định (ngày)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="Theo Hệ Thống"
+                      value={newDefaultExpDays}
+                      onChange={(e) => setNewDefaultExpDays(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                    />
+                    <span className="text-[10px] text-slate-400 block mt-0.5">Để trống = Theo hệ thống</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Thời Hạn Tối Đa (ngày)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="Theo Hệ Thống"
+                      value={newMaxExpDays}
+                      onChange={(e) => setNewMaxExpDays(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                    />
+                    <span className="text-[10px] text-slate-400 block mt-0.5">Để trống = Theo hệ thống</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                    Cho Phép Link Vĩnh Viễn (Không Hết Hạn)
+                  </label>
+                  <select
+                    value={newAllowUnlimited}
+                    onChange={(e) => setNewAllowUnlimited(e.target.value as any)}
+                    className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="default">-- Mặc Định Theo Hệ Thống --</option>
+                    <option value="allow">Cho phép Vĩnh Viễn</option>
+                    <option value="disallow">Bắt buộc phải cài ngày Hết Hạn</option>
                   </select>
                 </div>
               </div>

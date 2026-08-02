@@ -9,6 +9,9 @@ export interface User {
   daily_limit: number;
   status: UserStatus;
   must_change_password: boolean;
+  default_expiration_days?: number | null;
+  allow_unlimited_expiration?: boolean | null;
+  max_expiration_days?: number | null;
   created_at: string;
   updated_at: string;
 }
