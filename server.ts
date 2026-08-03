@@ -59,12 +59,26 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-// Check DB Status API
+// Check DB Status API (Bảo mật: Ẩn thông tin cấu hình nhạy cảm đối với người dùng công khai)
 app.get('/api/db-status', async (req: Request, res: Response) => {
   if (!db.isUsingMySQL) {
     await db.initMySQLSync();
   }
-  res.json({
+
+  const user = getAuthUser(req);
+  const isAdmin = user && user.role === 'admin';
+
+  if (!isAdmin) {
+    // Thông tin công khai tối giản, ẩn các chi tiết Host/User/Database/Lỗi hệ thống
+    return res.json({
+      status: 'ok',
+      isUsingMySQL: db.isUsingMySQL,
+      dbType: db.isUsingMySQL ? 'MySQL Database' : 'File Storage'
+    });
+  }
+
+  // Thông tin chẩn đoán chi tiết CHỈ dành cho Quản trị viên (Admin)
+  return res.json({
     status: 'ok',
     isUsingMySQL: db.isUsingMySQL,
     dbType: db.isUsingMySQL ? 'MySQL Database' : 'File JSON Storage (data/store.json)',
