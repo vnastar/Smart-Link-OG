@@ -60,6 +60,22 @@ export class MySQLService {
     }
   }
 
+  // Helper kiểm tra và tự động thêm cột mới nếu DB đã tồn tại từ trước (Auto Migration)
+  private async ensureColumnExists(conn: any, tableName: string, columnName: string, columnSpec: string) {
+    try {
+      const [cols]: any = await conn.query(
+        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+        [tableName, columnName]
+      );
+      if (!cols || cols.length === 0) {
+        console.log(`🔨 [Auto Migration] Đang tự động thêm cột [${columnName}] vào bảng [${tableName}]...`);
+        await conn.query(`ALTER TABLE \`${tableName}\` ADD COLUMN \`${columnName}\` ${columnSpec}`);
+      }
+    } catch (err) {
+      console.warn(`⚠️ Lỗi kiểm tra tự động nâng cấp cột ${tableName}.${columnName}:`, err);
+    }
+  }
+
   // Kiểm tra & Khởi tạo Table tự động nếu chưa có
   async checkAndSeedTables() {
     if (!this.pool) {
@@ -95,6 +111,12 @@ export class MySQLService {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
 
+      // Auto Migration checks for users table
+      await this.ensureColumnExists(conn, 'users', 'must_change_password', 'TINYINT(1) NOT NULL DEFAULT 0');
+      await this.ensureColumnExists(conn, 'users', 'default_expiration_days', 'INT DEFAULT 0');
+      await this.ensureColumnExists(conn, 'users', 'allow_unlimited_expiration', 'TINYINT(1) DEFAULT 1');
+      await this.ensureColumnExists(conn, 'users', 'max_expiration_days', 'INT DEFAULT 0');
+
       // Create links table
       await conn.query(`
         CREATE TABLE IF NOT EXISTS \`links\` (
@@ -122,6 +144,14 @@ export class MySQLService {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
 
+      // Auto Migration checks for links table
+      await this.ensureColumnExists(conn, 'links', 'user_name', "VARCHAR(100) DEFAULT ''");
+      await this.ensureColumnExists(conn, 'links', 'og_url', 'TEXT');
+      await this.ensureColumnExists(conn, 'links', 'og_type', "VARCHAR(50) DEFAULT 'website'");
+      await this.ensureColumnExists(conn, 'links', 'og_site_name', "VARCHAR(100) DEFAULT ''");
+      await this.ensureColumnExists(conn, 'links', 'redirect_code', 'INT NOT NULL DEFAULT 302');
+      await this.ensureColumnExists(conn, 'links', 'expires_at', 'DATETIME DEFAULT NULL');
+
       // Create settings table
       await conn.query(`
         CREATE TABLE IF NOT EXISTS \`settings\` (
@@ -144,6 +174,14 @@ export class MySQLService {
           PRIMARY KEY (\`id\`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
+
+      // Auto Migration checks for settings table
+      await this.ensureColumnExists(conn, 'settings', 'cloudflare_turnstile_enable', 'TINYINT(1) NOT NULL DEFAULT 0');
+      await this.ensureColumnExists(conn, 'settings', 'cloudflare_site_key', "VARCHAR(255) DEFAULT ''");
+      await this.ensureColumnExists(conn, 'settings', 'cloudflare_secret_key', "VARCHAR(255) DEFAULT ''");
+      await this.ensureColumnExists(conn, 'settings', 'default_expiration_days', 'INT DEFAULT 0');
+      await this.ensureColumnExists(conn, 'settings', 'allow_unlimited_expiration', 'TINYINT(1) DEFAULT 1');
+      await this.ensureColumnExists(conn, 'settings', 'max_expiration_days', 'INT DEFAULT 0');
 
       // Create visits table
       await conn.query(`

@@ -24,12 +24,19 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static uploads directory
-const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-app.use('/uploads', express.static(uploadsDir));
+// Persistent uploads directory setup (Hỗ trợ lưu trữ ảnh cố định không bị xóa khi git pull/build)
+const persistentUploadsDir = process.env.UPLOADS_DIR || path.join(process.cwd(), 'data', 'uploads');
+const publicUploadsDir = path.join(process.cwd(), 'public', 'uploads');
+
+[persistentUploadsDir, publicUploadsDir].forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+});
+
+const uploadsDir = persistentUploadsDir;
+app.use('/uploads', express.static(persistentUploadsDir));
+app.use('/uploads', express.static(publicUploadsDir));
 
 // Helper: Extract Auth User from custom Session / Auth Header
 function getAuthUser(req: Request) {
@@ -1037,6 +1044,32 @@ app.get('/api/admin/logs', requireAdmin, (req: Request, res: Response) => {
   const visits = db.getVisits();
   const logs = db.getLogs();
   return res.json({ visits, logs });
+});
+
+// Admin Database Backup Export Endpoint
+app.get('/api/admin/backup/export', requireAdmin, (req: Request, res: Response) => {
+  const users = db.getUsers();
+  const links = db.getLinks();
+  const settings = db.getSettings();
+  const visits = db.getVisits();
+  const logs = db.getLogs();
+
+  const backupData = {
+    exportDate: new Date().toISOString(),
+    isUsingMySQL: db.isUsingMySQL,
+    version: '1.0',
+    data: {
+      users,
+      links,
+      settings,
+      visits,
+      logs
+    }
+  };
+
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename="smartlink_backup_${Date.now()}.json"`);
+  return res.send(JSON.stringify(backupData, null, 2));
 });
 
 // Public Site Config for Frontend initial load

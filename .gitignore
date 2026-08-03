@@ -6,3 +6,11 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Uploads & Data Persistence
+public/uploads/*
+!public/uploads/.gitkeep
+data/uploads/*
+!data/uploads/.gitkeep
+data/store.json
+data/backup/
