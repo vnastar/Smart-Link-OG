@@ -1,5 +1,8 @@
 import mysql from 'mysql2/promise';
+import dotenv from 'dotenv';
 import { User, LinkItem, SiteSettings, VisitLog, AuditLog } from '../src/types.js';
+
+dotenv.config();
 
 export interface UserStore extends User {
   password_hash: string;
@@ -8,20 +11,32 @@ export interface UserStore extends User {
 export class MySQLService {
   private pool: mysql.Pool | null = null;
   public isConnected = false;
+  public lastError: string | null = null;
+  public configSummary: Record<string, any> = {};
 
   constructor() {
     this.initPool();
   }
 
-  private initPool() {
+  public initPool() {
+    dotenv.config(); // Nạp lại biến môi trường từ .env nếu vừa thay đổi
     const host = process.env.MYSQL_HOST || process.env.DB_HOST;
     const user = process.env.MYSQL_USER || process.env.DB_USER;
     const password = process.env.MYSQL_PASSWORD || process.env.DB_PASSWORD || process.env.DB_PASS;
     const database = process.env.MYSQL_DATABASE || process.env.DB_NAME;
     const port = Number(process.env.MYSQL_PORT || process.env.DB_PORT) || 3306;
 
+    this.configSummary = {
+      host: host || '(Chưa cấu hình)',
+      port,
+      user: user || '(Chưa cấu hình)',
+      database: database || '(Chưa cấu hình)',
+      hasPassword: Boolean(password)
+    };
+
     if (!host || !user || !database) {
-      console.log('ℹ️ Cấu hình MySQL chưa hoàn tất trong .env. Đang chạy ở chế độ File Storage (data/store.json).');
+      this.lastError = 'Chưa thiết lập biến môi trường MySQL (Thiếu MYSQL_HOST, MYSQL_USER hoặc MYSQL_DATABASE)';
+      console.log('ℹ️ Cấu hình MySQL chưa hoàn tất trong .env / Environment Variables.');
       return;
     }
 
@@ -37,18 +52,25 @@ export class MySQLService {
         queueLimit: 0,
         charset: 'utf8mb4'
       });
+      this.lastError = null;
       console.log(`🔌 Đã khởi tạo kết nối MySQL Pool tới: ${user}@${host}:${port}/${database}`);
-    } catch (err) {
+    } catch (err: any) {
+      this.lastError = err?.message || String(err);
       console.error('❌ Lỗi kết nối MySQL Pool:', err);
     }
   }
 
   // Kiểm tra & Khởi tạo Table tự động nếu chưa có
   async checkAndSeedTables() {
+    if (!this.pool) {
+      this.initPool();
+    }
     if (!this.pool) return false;
+
     try {
       const conn = await this.pool.getConnection();
       this.isConnected = true;
+      this.lastError = null;
       console.log('✅ Đã kết nối thành công tới Database MySQL!');
 
       // Create users table
@@ -189,7 +211,8 @@ export class MySQLService {
 
       conn.release();
       return true;
-    } catch (err) {
+    } catch (err: any) {
+      this.lastError = err?.message || String(err);
       console.error('❌ Không thể kết nối hoặc khởi tạo MySQL table:', err);
       this.isConnected = false;
       return false;

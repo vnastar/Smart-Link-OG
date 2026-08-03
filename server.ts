@@ -1,8 +1,10 @@
+import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { db } from './server/db.js';
+import { mysqlService } from './server/mysql.js';
 import { BotDetector } from './server/services/botDetector.js';
 
 const app = express();
@@ -58,11 +60,16 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
 }
 
 // Check DB Status API
-app.get('/api/db-status', (req: Request, res: Response) => {
+app.get('/api/db-status', async (req: Request, res: Response) => {
+  if (!db.isUsingMySQL) {
+    await db.initMySQLSync();
+  }
   res.json({
     status: 'ok',
     isUsingMySQL: db.isUsingMySQL,
-    dbType: db.isUsingMySQL ? 'MySQL Database' : 'File JSON Storage (data/store.json)'
+    dbType: db.isUsingMySQL ? 'MySQL Database' : 'File JSON Storage (data/store.json)',
+    configSummary: mysqlService.configSummary,
+    lastError: mysqlService.lastError
   });
 });
 

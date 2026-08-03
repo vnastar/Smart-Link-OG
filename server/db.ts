@@ -130,15 +130,17 @@ class DBManager {
     this.initMySQLSync();
   }
 
-  private async initMySQLSync() {
+  public async initMySQLSync() {
     const success = await mysqlService.checkAndSeedTables();
     if (success) {
       this.isUsingMySQL = true;
       console.log('⚡ Đang đồng bộ hóa dữ liệu từ MySQL Database...');
       await this.reloadFromMySQL();
     } else {
+      this.isUsingMySQL = false;
       console.log('📁 Sử dụng Bộ lưu trữ File JSON (data/store.json).');
     }
+    return success;
   }
 
   public async reloadFromMySQL() {
