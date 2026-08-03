@@ -27,7 +27,7 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [siteConfig, setSiteConfig] = useState({
     site_name: 'Smart Link OG',
-    site_domain: 'https://sls.vnastar.com'
+    site_domain: typeof window !== 'undefined' ? window.location.origin : ''
   });
 
   // Modal states
@@ -47,7 +47,7 @@ export default function App() {
       .then(cfg => {
         setSiteConfig({
           site_name: cfg.site_name || 'Smart Link OG',
-          site_domain: cfg.site_domain || 'https://sls.vnastar.com'
+          site_domain: cfg.site_domain || (typeof window !== 'undefined' ? window.location.origin : '')
         });
       })
       .catch(console.error);
@@ -195,6 +195,7 @@ export default function App() {
               onNavigate={handleNavigate}
               onOpenQR={openQR}
               onOpenBotInspector={openBotInspector}
+              siteDomain={siteConfig.site_domain}
             />
           )}
 

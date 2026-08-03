@@ -70,7 +70,7 @@ DROP TABLE IF EXISTS `settings`;
 CREATE TABLE `settings` (
   `id` VARCHAR(50) NOT NULL DEFAULT 'default',
   `site_name` VARCHAR(150) NOT NULL DEFAULT 'Smart Link OG',
-  `site_domain` VARCHAR(255) NOT NULL DEFAULT 'https://sls.vnastar.com',
+  `site_domain` VARCHAR(255) NOT NULL DEFAULT '',
   `default_limit` INT NOT NULL DEFAULT 3,
   `register_enable` TINYINT(1) NOT NULL DEFAULT 1,
   `upload_enable` TINYINT(1) NOT NULL DEFAULT 1,
@@ -156,7 +156,7 @@ INSERT INTO `users` (`id`, `username`, `email`, `password`, `role`, `status`, `d
 
 -- 2. Cấu hình hệ thống mặc định:
 INSERT INTO `settings` (`id`, `site_name`, `site_domain`, `default_limit`, `register_enable`, `upload_enable`, `default_redirect`, `logo`, `favicon`, `bot_list`, `cloudflare_turnstile_enable`, `cloudflare_site_key`, `cloudflare_secret_key`, `default_expiration_days`, `allow_unlimited_expiration`, `max_expiration_days`) VALUES
-('default', 'Smart Link OG', 'https://sls.vnastar.com', 3, 1, 1, '302', '', '', 'facebookexternalhit, facebot, twitterbot, discordbot, telegrambot, linkedinbot, slackbot, whatsapp, pinterest, googleinspectiontool, bingbot, googlebot, applebot, yandex, duckduckbot, baiduspider, skypeuripreview, vkshare, outbrain, zalo, viber', 0, '', '', 0, 1, 0);
+('default', 'Smart Link OG', '', 3, 1, 1, '302', '', '', 'facebookexternalhit, facebot, twitterbot, discordbot, telegrambot, linkedinbot, slackbot, whatsapp, pinterest, googleinspectiontool, bingbot, googlebot, applebot, yandex, duckduckbot, baiduspider, skypeuripreview, vkshare, outbrain, zalo, viber', 0, '', '', 0, 1, 0);
 
 -- 3. Mẫu Link rút gọn ban đầu:
 INSERT INTO `links` (`id`, `user_id`, `user_name`, `slug`, `destination_url`, `title`, `description`, `image`, `clicks`, `status`, `redirect_code`, `created_at`) VALUES

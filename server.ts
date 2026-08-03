@@ -48,6 +48,17 @@ function getAuthUser(req: Request) {
   return user;
 }
 
+// Helper: Lấy Domain hiện tại động từ Request hoặc từ Settings
+function getRequestSiteDomain(req: Request): string {
+  const settings = db.getSettings();
+  if (settings.site_domain && settings.site_domain.trim() !== '') {
+    return settings.site_domain.trim().replace(/\/$/, '');
+  }
+  const host = req.get('x-forwarded-host') || req.get('host') || 'localhost:3000';
+  const protocol = req.get('x-forwarded-proto') || req.protocol || 'http';
+  return `${protocol}://${host}`;
+}
+
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   const user = getAuthUser(req);
   if (!user) {
@@ -742,7 +753,7 @@ app.post('/api/simulate-bot', (req: Request, res: Response) => {
   }
 
   const botCheck = BotDetector.isBot(user_agent);
-  const siteDomain = settings.site_domain || 'https://sls.vnastar.com';
+  const siteDomain = getRequestSiteDomain(req);
   const fullUrl = `${siteDomain}/${link.slug}`;
 
   if (botCheck.isBot) {
@@ -1091,7 +1102,7 @@ app.get('/api/public/config', (req: Request, res: Response) => {
 
   return res.json({
     site_name: settings.site_name,
-    site_domain: settings.site_domain,
+    site_domain: settings.site_domain || getRequestSiteDomain(req),
     register_enable: settings.register_enable,
     upload_enable: settings.upload_enable,
     logo: settings.logo,
@@ -1122,7 +1133,7 @@ app.get('/api/public-settings', (req: Request, res: Response) => {
 
   return res.json({
     site_name: settings.site_name,
-    site_domain: settings.site_domain,
+    site_domain: settings.site_domain || getRequestSiteDomain(req),
     register_enable: settings.register_enable,
     upload_enable: settings.upload_enable,
     logo: settings.logo,
@@ -1200,7 +1211,7 @@ app.get('/:slug', (req: Request, res: Response, next: NextFunction) => {
   const userAgent = req.headers['user-agent'] || '';
   const botCheck = BotDetector.isBot(userAgent);
   const settings = db.getSettings();
-  const siteDomain = settings.site_domain || 'https://sls.vnastar.com';
+  const siteDomain = getRequestSiteDomain(req);
   const fullUrl = `${siteDomain}/${link.slug}`;
 
   // Log Visit Record & Classification

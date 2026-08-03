@@ -12,7 +12,7 @@ interface AdminLinksViewProps {
 export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
   onOpenQR,
   onOpenBotInspector,
-  siteDomain = 'https://sls.vnastar.com'
+  siteDomain = typeof window !== 'undefined' ? window.location.origin : ''
 }) => {
   const [links, setLinks] = useState<LinkItem[]>([]);
   const [loading, setLoading] = useState(true);

@@ -157,7 +157,7 @@ export class MySQLService {
         CREATE TABLE IF NOT EXISTS \`settings\` (
           \`id\` VARCHAR(50) NOT NULL DEFAULT 'default',
           \`site_name\` VARCHAR(150) NOT NULL DEFAULT 'Smart Link OG',
-          \`site_domain\` VARCHAR(255) NOT NULL DEFAULT 'https://sls.vnastar.com',
+          \`site_domain\` VARCHAR(255) NOT NULL DEFAULT '',
           \`default_limit\` INT NOT NULL DEFAULT 3,
           \`register_enable\` TINYINT(1) NOT NULL DEFAULT 1,
           \`upload_enable\` TINYINT(1) NOT NULL DEFAULT 1,
@@ -241,7 +241,7 @@ export class MySQLService {
       if (settings[0].count === 0) {
         await conn.query(
           `INSERT INTO settings (id, site_name, site_domain, default_limit, register_enable, upload_enable, default_redirect, bot_list)
-           VALUES ('default', 'Smart Link OG', 'https://sls.vnastar.com', 3, 1, 1, '302', ?)`,
+           VALUES ('default', 'Smart Link OG', '', 3, 1, 1, '302', ?)`,
           ['facebookexternalhit, facebot, twitterbot, discordbot, telegrambot, linkedinbot, slackbot, whatsapp, pinterest, googleinspectiontool, bingbot, googlebot, applebot, yandex, duckduckbot, baiduspider, skypeuripreview, vkshare, outbrain, zalo, viber']
         );
         console.log('🌱 Đã tạo cấu hình hệ thống mặc định trên MySQL.');

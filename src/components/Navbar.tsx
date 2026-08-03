@@ -17,7 +17,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLogout,
   onOpenBotSimulator,
   siteName = 'Smart Link OG',
-  siteDomain = 'https://sls.vnastar.com',
+  siteDomain = typeof window !== 'undefined' ? window.location.origin : '',
   onToggleMobileMenu,
   isMobileMenuOpen = false
 }) => {

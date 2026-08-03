@@ -9,13 +9,15 @@ interface DashboardViewProps {
   onNavigate: (path: string) => void;
   onOpenQR: (slug: string, dest: string) => void;
   onOpenBotInspector: (slug: string) => void;
+  siteDomain?: string;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   user,
   onNavigate,
   onOpenQR,
-  onOpenBotInspector
+  onOpenBotInspector,
+  siteDomain
 }) => {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [links, setLinks] = useState<LinkItem[]>([]);
@@ -44,7 +46,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   }, []);
 
   const handleCopy = (slug: string) => {
-    const fullUrl = `https://sls.vnastar.com/${slug}`;
+    const domain = siteDomain || (typeof window !== 'undefined' ? window.location.origin : '');
+    const fullUrl = `${domain.replace(/\/$/, '')}/${slug}`;
     navigator.clipboard.writeText(fullUrl);
     setCopiedSlug(slug);
     setTimeout(() => setCopiedSlug(null), 2000);

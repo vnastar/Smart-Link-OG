@@ -15,7 +15,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
   onClose,
   slug,
   destinationUrl,
-  domain = 'https://sls.vnastar.com'
+  domain = typeof window !== 'undefined' ? window.location.origin : ''
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [copied, setCopied] = React.useState(false);

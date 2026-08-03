@@ -170,7 +170,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
         <div className="flex items-center justify-between">
           <span>Target:</span>
-          <span className="font-mono text-slate-600">sls.vnastar.com</span>
+          <span className="font-mono text-slate-600">
+            {typeof window !== 'undefined' ? window.location.host : 'Auto-detect'}
+          </span>
         </div>
       </div>
     </div>

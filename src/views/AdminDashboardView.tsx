@@ -116,7 +116,9 @@ export const AdminDashboardView: React.FC = () => {
           </div>
           <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
             <div className="text-slate-400 font-medium">Domain Server</div>
-            <div className="text-emerald-400 font-mono font-bold mt-1">sls.vnastar.com</div>
+            <div className="text-emerald-400 font-mono font-bold mt-1">
+              {typeof window !== 'undefined' ? window.location.host : 'Auto-detect'}
+            </div>
           </div>
           <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
             <div className="text-slate-400 font-medium">Default Redirect</div>

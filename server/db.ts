@@ -41,7 +41,7 @@ const DEFAULT_BOT_LIST = [
 
 const DEFAULT_SETTINGS: SiteSettings = {
   site_name: 'Smart Link OG',
-  site_domain: 'https://sls.vnastar.com',
+  site_domain: '',
   default_limit: 3,
   register_enable: true,
   upload_enable: true,

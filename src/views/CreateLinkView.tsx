@@ -13,7 +13,7 @@ interface CreateLinkViewProps {
 export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
   user,
   onNavigate,
-  siteDomain = 'https://sls.vnastar.com'
+  siteDomain = typeof window !== 'undefined' ? window.location.origin : ''
 }) => {
   const [destinationUrl, setDestinationUrl] = useState('');
   const [slug, setSlug] = useState('');

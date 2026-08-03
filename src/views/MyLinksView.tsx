@@ -14,7 +14,7 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
   user,
   onOpenQR,
   onOpenBotInspector,
-  siteDomain = 'https://sls.vnastar.com'
+  siteDomain = typeof window !== 'undefined' ? window.location.origin : ''
 }) => {
   const [links, setLinks] = useState<LinkItem[]>([]);
   const [loading, setLoading] = useState(true);

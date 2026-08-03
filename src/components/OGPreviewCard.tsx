@@ -16,7 +16,7 @@ export const OGPreviewCard: React.FC<OGPreviewCardProps> = ({
   title,
   description,
   image,
-  domain = 'https://sls.vnastar.com',
+  domain = typeof window !== 'undefined' ? window.location.origin : '',
   slug = 'video01',
   ogUrl,
   ogType,

@@ -271,15 +271,18 @@ export const AdminSettingsView: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
-                Website Domain Prefix
+                Website Domain Prefix (Tuỳ chọn)
               </label>
               <input
                 type="text"
                 value={settings.site_domain}
                 onChange={(e) => setSettings({ ...settings, site_domain: e.target.value })}
-                placeholder="https://sls.vnastar.com"
+                placeholder={typeof window !== 'undefined' ? window.location.origin : 'https://ten-mien-cua-ban.com'}
                 className="w-full bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Đề trống nếu muốn hệ thống tự động nhận diện tên miền hiện tại (Auto-Detect Domain) khi triển khai đa tên miền.
+              </p>
             </div>
 
             {/* Logo Upload & Preview */}
