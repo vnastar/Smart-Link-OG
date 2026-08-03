@@ -1,12 +1,10 @@
 -- ============================================================================
 -- Smart Link OpenGraph (SLS) - Schema MySQL & Dữ Liệu Mẫu
--- Tương thích hoàn toàn với MySQL 5.7+, MySQL 8.0+, MariaDB 10.3+ & phpMyAdmin
--- Lệnh Import bằng CMD / Terminal:
---   mysql -u root -p sls_db < schema.sql
+-- Tương thích với MySQL 5.7+, MySQL 8.0+, MariaDB 10.3+ & phpMyAdmin (Shared Hosting, cPanel, DirectAdmin)
+-- HƯỚNG DẪN: 
+-- 1. Mở phpMyAdmin và chọn đúng Database của bạn (ví dụ: u202109230_xxxxx)
+-- 2. Chọn tab "Nhập" (Import) chọn file schema.sql này, hoặc mở tab "SQL" và dán toàn bộ nội dung này vào để chạy.
 -- ============================================================================
-
-CREATE DATABASE IF NOT EXISTS `sls_db` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `sls_db`;
 
 SET FOREIGN_KEY_CHECKS = 0;
 
