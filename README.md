@@ -103,156 +103,69 @@ npm run start
 
 ## 🗄️ Hướng Dẫn Cấu Hình Cơ Sở Dữ Liệu MySQL (MySQL Database Setup)
 
-Mặc định dự án sử dụng lưu trữ tệp tin JSON (`data/db.json`) giúp dễ dàng chạy thử nghiệm mà không cần cài đặt database. Khi muốn chuyển đổi hoặc mở rộng ứng dụng sang hệ quản trị cơ sở dữ liệu **MySQL / MariaDB** cho môi trường Production, hãy thực hiện theo hướng dẫn chi tiết dưới đây:
-
-### 1. Import Tệp Cơ Sở Dữ Liệu `schema.sql` Tự Động (Import Database File)
-
-Dự án đã chuẩn bị sẵn tệp dán/nhập dữ liệu trực tiếp **`schema.sql`** ở thư mục gốc. Tệp này bao gồm toàn bộ lệnh khởi tạo Database `sls_db`, các Bảng dữ liệu, Khóa chính/Khóa ngoại, Index và dữ liệu mẫu mặc định (`admin`/`user`).
-
-Bạn có thể nhập tệp `schema.sql` vào MySQL bằng 1 trong các cách sau:
-
-#### Cách 1: Sử dụng Lệnh MySQL CLI (Command Line)
-```bash
-# Nhập trực tiếp tệp schema.sql vào MySQL Server
-mysql -u root -p < schema.sql
-```
-
-#### Cách 2: Sử dụng phpMyAdmin
-1. Truy cập trang điều khiển **phpMyAdmin**.
-2. Chọn Tab **Import** (Nhập).
-3. Nhấp **Choose File** (Chọn tệp) và chọn tệp **`schema.sql`** trong thư mục dự án.
-4. Nhấp nút **Import** (Thực hiện) ở cuối trang để hoàn tất.
-
-#### Cách 3: Sử dụng MySQL Workbench / DBeaver
-1. Mở **MySQL Workbench** và kết nối đến Server.
-2. Vào Menu **File** -> **Open SQL Script...** -> Chọn tệp **`schema.sql`**.
-3. Nhấp biểu tượng **Tia sét (Execute)** để chạy toàn bộ Script.
+Hệ thống được tích hợp sẵn cơ chế **Hybrid Data Engine**:
+* **Chế độ File Storage (Mặc định):** Dữ liệu được lưu vào `data/store.json`, tự động khởi tạo dữ liệu mẫu, không cần cài MySQL khi dùng thử.
+* **Chế độ MySQL Database:** Khi cung cấp thông tin kết nối MySQL trong tệp `.env`, hệ thống sẽ **tự động kết nối tới MySQL**, khởi tạo các bảng (Auto Table Creation) và lưu trữ trực tiếp trên cơ sở dữ liệu MySQL!
 
 ---
 
-### 2. Cấu Trúc Bảng Dữ Liệu SQL (DDL Reference)
+### 1. Hướng Dẫn Import MySQL trên phpMyAdmin (Shared Hosting / cPanel)
 
-Nếu muốn xem hoặc chỉnh sửa trực tiếp cấu trúc DDL của các bảng trong `schema.sql`:
+Nếu bạn sử dụng Shared Hosting (như cPanel, DirectAdmin, Hostinger, v.v.):
 
-```sql
--- Khởi tạo Database
-CREATE DATABASE IF NOT EXISTS `sls_db` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `sls_db`;
+1. Vào **cPanel** -> **MySQL Databases** -> Tạo 1 Database mới (Ví dụ: `u202109230_sls_db`).
+2. Tạo 1 **MySQL User** và gán toàn bộ quyền (ALL PRIVILEGES) cho user đó trên database vừa tạo.
+3. Mở **phpMyAdmin** -> Nhấp chọn tên Database của bạn ở cột bên trái.
+4. Chọn Tab **Nhập (Import)** -> Chọn tệp **`schema.sql`** trong thư mục mã nguồn -> Nhấp nút **Nhập (Import)** ở cuối trang.
+   *(Lưu ý: Tệp `schema.sql` đã được tối ưu để import trực tiếp vào bất kỳ database có sẵn nào mà không bị lỗi cấp quyền #1044)*.
 
--- 1. Bảng Users (Quản lý tài khoản)
-CREATE TABLE IF NOT EXISTS `users` (
-  `id` VARCHAR(50) PRIMARY KEY,
-  `username` VARCHAR(100) NOT NULL UNIQUE,
-  `email` VARCHAR(150) NOT NULL UNIQUE,
-  `password` VARCHAR(255) NOT NULL,
-  `role` ENUM('admin', 'user') DEFAULT 'user',
-  `status` ENUM('active', 'blocked') DEFAULT 'active',
-  `daily_limit` INT DEFAULT 5,
-  `must_change_password` TINYINT(1) DEFAULT 0,
-  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+---
 
--- 2. Bảng Links (Quản lý liên kết rút gọn & OpenGraph metadata)
-CREATE TABLE IF NOT EXISTS `links` (
-  `id` VARCHAR(50) PRIMARY KEY,
-  `slug` VARCHAR(100) NOT NULL UNIQUE,
-  `destination_url` TEXT NOT NULL,
-  `title` VARCHAR(255) DEFAULT '',
-  `description` TEXT,
-  `image` TEXT,
-  `user_id` VARCHAR(50) NOT NULL,
-  `clicks` INT DEFAULT 0,
-  `bot_views` INT DEFAULT 0,
-  `is_active` TINYINT(1) DEFAULT 1,
-  `redirect_code` INT DEFAULT 302,
-  `expires_at` DATETIME NULL,
-  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
-  INDEX `idx_slug` (`slug`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+### 2. Khai Báo Biến Môi Trường Kết Nối trong Tệp `.env`
 
--- 3. Bảng Settings (Cấu hình hệ thống & danh sách Bot)
-CREATE TABLE IF NOT EXISTS `settings` (
-  `id` VARCHAR(50) PRIMARY KEY DEFAULT 'default',
-  `site_name` VARCHAR(150) DEFAULT 'Smart Link Service',
-  `site_domain` VARCHAR(255) DEFAULT 'http://localhost:3000',
-  `logo` TEXT,
-  `favicon` TEXT,
-  `default_redirect` VARCHAR(10) DEFAULT '302',
-  `default_limit` INT DEFAULT 5,
-  `register_enable` TINYINT(1) DEFAULT 1,
-  `upload_enable` TINYINT(1) DEFAULT 1,
-  `bot_list` TEXT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- 4. Bảng Analytics (Thống kê truy cập theo ngày)
-CREATE TABLE IF NOT EXISTS `analytics` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `date` DATE NOT NULL UNIQUE,
-  `clicks` INT DEFAULT 0,
-  `bot_views` INT DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-```
-
-### 2. Khai Báo Biến Môi Trường MySQL (`.env`)
-
-Thêm các tham số cấu hình kết nối database trong tệp `.env`:
+Mở hoặc tạo tệp **`.env`** ở thư mục gốc của dự án và điền thông tin kết nối MySQL:
 
 ```env
-# Đổi kiểu database sang mysql
+# Đổi loại DB sang mysql
 DB_TYPE="mysql"
 
-# Thông tin kết nối MySQL Database
+# Cấu hình máy chủ MySQL
+MYSQL_HOST="localhost"
+MYSQL_PORT=3306
+MYSQL_USER="u202109230_admin"
+MYSQL_PASSWORD="YourPasswordHere123@"
+MYSQL_DATABASE="u202109230_sls_db"
+
+# Hoặc dùng cú pháp tên biến cPanel/Hosting tương đương:
 DB_HOST="localhost"
 DB_PORT=3306
-DB_USER="root"
-DB_PASSWORD="your_mysql_password_here"
-DB_NAME="sls_db"
+DB_USER="u202109230_admin"
+DB_PASS="YourPasswordHere123@"
+DB_NAME="u202109230_sls_db"
 ```
 
-### 3. Cài Đặt Thư Viện Kết Nối `mysql2`
+---
 
-Chạy lệnh cài đặt thư viện kết nối MySQL tốc độ cao cho Node.js:
+### 3. Kiểm Tra Trạng Thái Kết Nối MySQL
 
-```bash
-npm install mysql2
-```
+Sau khi chạy ứng dụng (`npm run dev` hoặc `npm run start`), bạn có thể kiểm tra xem hệ thống đã nhận diện MySQL chưa bằng 2 cách:
 
-### 4. Mẫu Kết Nối Connection Pool trong Node.js (`server/db_mysql.ts`)
-
-Tạo tệp `server/db_mysql.ts` để quản lý kết nối và thực thi các câu lệnh truy vấn tới MySQL server:
-
-```typescript
-import mysql from 'mysql2/promise';
-
-export const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  port: Number(process.env.DB_PORT) || 3306,
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'sls_db',
-  waitForConnections: true,
-  connectionLimit: 10,
-  maxIdle: 10,
-  idleTimeout: 60000,
-  queueLimit: 0,
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 0
-});
-
-// Thử kết nối database
-export async function checkConnection() {
-  try {
-    const connection = await pool.getConnection();
-    console.log('✅ Kết nối MySQL Database thành công!');
-    connection.release();
-  } catch (error) {
-    console.error('❌ Lỗi kết nối MySQL Database:', error);
-  }
-}
-```
+1. **Xem Output Log trên Server Console:**
+   ```text
+   🔌 Đã khởi tạo kết nối MySQL Pool tới: u202109230_admin@localhost:3306/u202109230_sls_db
+   ✅ Đã kết nối thành công tới Database MySQL!
+   ⚡ Đang đồng bộ hóa dữ liệu từ MySQL Database...
+   ✅ Đã tải thành công dữ liệu từ MySQL!
+   ```
+2. **Truy cập Endpoint Kiểm Tra API:**
+   Mở đường dẫn `http://localhost:3000/api/db-status` (hoặc domain của bạn), API sẽ trả về JSON:
+   ```json
+   {
+     "status": "ok",
+     "isUsingMySQL": true,
+     "dbType": "MySQL Database"
+   }
+   ```
 
 ---
 

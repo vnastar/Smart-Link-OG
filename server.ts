@@ -57,6 +57,15 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+// Check DB Status API
+app.get('/api/db-status', (req: Request, res: Response) => {
+  res.json({
+    status: 'ok',
+    isUsingMySQL: db.isUsingMySQL,
+    dbType: db.isUsingMySQL ? 'MySQL Database' : 'File JSON Storage (data/store.json)'
+  });
+});
+
 // -------------------------------------------------------------
 // AUTH API
 // -------------------------------------------------------------

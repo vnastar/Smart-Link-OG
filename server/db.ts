@@ -1,6 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import { User, LinkItem, SiteSettings, VisitLog, AuditLog } from '../src/types.js';
+import { mysqlService, type UserStore } from './mysql.js';
+
+export type { UserStore };
 
 interface DatabaseSchema {
   users: UserStore[];
@@ -8,10 +11,6 @@ interface DatabaseSchema {
   settings: SiteSettings;
   visits: VisitLog[];
   logs: AuditLog[];
-}
-
-export interface UserStore extends User {
-  password_hash: string;
 }
 
 const DB_PATH = path.join(process.cwd(), 'data', 'store.json');
@@ -64,7 +63,7 @@ const SEED_DATA: DatabaseSchema = {
       id: 'usr_admin',
       username: 'admin',
       email: 'admin@vnastar.com',
-      password_hash: 'admin', // plain text / hash comparison for simplicity in demo
+      password_hash: 'admin',
       role: 'admin',
       daily_limit: 9999,
       status: 'active',
@@ -118,44 +117,52 @@ const SEED_DATA: DatabaseSchema = {
     }
   ],
   settings: DEFAULT_SETTINGS,
-  visits: [
-    { id: 'vst_01', link_id: 'lnk_video01', slug: 'video01', ip: '113.190.1.20', country: 'Hà Nội', referer: 'https://facebook.com', browser: 'Facebook App', device: 'Mobile', is_bot: false, created_at: new Date(Date.now() - 3600000 * 2).toISOString() },
-    { id: 'vst_02', link_id: 'lnk_video01', slug: 'video01', ip: '14.161.22.45', country: 'TP. Hồ Chí Minh', referer: 'Direct', browser: 'Google Chrome', device: 'Mobile', is_bot: false, created_at: new Date(Date.now() - 3600000 * 3).toISOString() },
-    { id: 'vst_03', link_id: 'lnk_video01', slug: 'video01', ip: '113.160.10.5', country: 'TP. Hồ Chí Minh', referer: 'https://zalo.me', browser: 'Zalo App', device: 'Mobile', is_bot: false, created_at: new Date(Date.now() - 3600000 * 4).toISOString() },
-    { id: 'vst_04', link_id: 'lnk_video01', slug: 'video01', ip: '42.112.50.88', country: 'Đà Nẵng', referer: 'https://google.com', browser: 'Google Chrome', device: 'Desktop', is_bot: false, created_at: new Date(Date.now() - 3600000 * 5).toISOString() },
-    { id: 'vst_05', link_id: 'lnk_video01', slug: 'video01', ip: '113.190.88.1', country: 'Hà Nội', referer: 'https://facebook.com', browser: 'Facebook externalhit/1.1', device: 'Bot', is_bot: true, created_at: new Date(Date.now() - 3600000 * 6).toISOString() },
-    { id: 'vst_06', link_id: 'lnk_video01', slug: 'video01', ip: '171.244.1.99', country: 'Cần Thơ', referer: 'https://tiktok.com', browser: 'TikTok App', device: 'Mobile', is_bot: false, created_at: new Date(Date.now() - 3600000 * 7).toISOString() },
-    { id: 'vst_07', link_id: 'lnk_video01', slug: 'video01', ip: '118.69.100.12', country: 'Hải Phòng', referer: 'https://zalo.me', browser: 'Zalo App', device: 'Mobile', is_bot: false, created_at: new Date(Date.now() - 3600000 * 8).toISOString() },
-    { id: 'vst_08', link_id: 'lnk_video01', slug: 'video01', ip: '113.190.40.2', country: 'Hà Nội', referer: 'https://facebook.com', browser: 'Facebook App', device: 'Mobile', is_bot: false, created_at: new Date(Date.now() - 3600000 * 9).toISOString() },
-    { id: 'vst_09', link_id: 'lnk_video01', slug: 'video01', ip: '27.72.15.30', country: 'Bình Dương', referer: 'https://t.me', browser: 'Apple Safari', device: 'Mobile', is_bot: false, created_at: new Date(Date.now() - 3600000 * 10).toISOString() },
-    { id: 'vst_10', link_id: 'lnk_video01', slug: 'video01', ip: '66.249.66.1', country: 'Quốc Tế (Mỹ)', referer: 'https://google.com', browser: 'Googlebot/2.1', device: 'Bot', is_bot: true, created_at: new Date(Date.now() - 3600000 * 11).toISOString() },
-    { id: 'vst_11', link_id: 'lnk_video01', slug: 'video01', ip: '14.161.80.22', country: 'TP. Hồ Chí Minh', referer: 'Direct', browser: 'Apple Safari', device: 'Tablet', is_bot: false, created_at: new Date(Date.now() - 3600000 * 12).toISOString() },
-    { id: 'vst_12', link_id: 'lnk_video01', slug: 'video01', ip: '113.190.99.4', country: 'Hà Nội', referer: 'https://google.com', browser: 'Google Chrome', device: 'Desktop', is_bot: false, created_at: new Date(Date.now() - 3600000 * 13).toISOString() },
-    { id: 'vst_13', link_id: 'lnk_demo02', slug: 'P8Hsj9', ip: '14.161.10.1', country: 'TP. Hồ Chí Minh', referer: 'https://facebook.com', browser: 'Facebook App', device: 'Mobile', is_bot: false, created_at: new Date(Date.now() - 3600000 * 14).toISOString() },
-    { id: 'vst_14', link_id: 'lnk_demo02', slug: 'P8Hsj9', ip: '113.190.55.88', country: 'Hà Nội', referer: 'https://zalo.me', browser: 'Zalo App', device: 'Mobile', is_bot: false, created_at: new Date(Date.now() - 3600000 * 15).toISOString() },
-    { id: 'vst_15', link_id: 'lnk_demo02', slug: 'P8Hsj9', ip: '42.112.99.11', country: 'Đà Nẵng', referer: 'Direct', browser: 'Microsoft Edge', device: 'Desktop', is_bot: false, created_at: new Date(Date.now() - 3600000 * 16).toISOString() }
-  ],
-  logs: [
-    {
-      id: 'log_1',
-      user_id: 'usr_admin',
-      user_name: 'admin',
-      action: 'SYSTEM_INIT',
-      details: 'Khởi tạo hệ thống Smart Link OG',
-      ip: '127.0.0.1',
-      created_at: new Date().toISOString()
-    }
-  ]
+  visits: [],
+  logs: []
 };
 
 class DBManager {
   private data: DatabaseSchema;
+  public isUsingMySQL = false;
 
   constructor() {
-    this.data = this.load();
+    this.data = this.loadLocal();
+    this.initMySQLSync();
   }
 
-  private load(): DatabaseSchema {
+  private async initMySQLSync() {
+    const success = await mysqlService.checkAndSeedTables();
+    if (success) {
+      this.isUsingMySQL = true;
+      console.log('⚡ Đang đồng bộ hóa dữ liệu từ MySQL Database...');
+      await this.reloadFromMySQL();
+    } else {
+      console.log('📁 Sử dụng Bộ lưu trữ File JSON (data/store.json).');
+    }
+  }
+
+  public async reloadFromMySQL() {
+    if (!mysqlService.isConnected) return;
+    try {
+      const users = await mysqlService.fetchAllUsers();
+      const links = await mysqlService.fetchAllLinks();
+      const settings = await mysqlService.fetchSettings();
+      const visits = await mysqlService.fetchAllVisits();
+      const logs = await mysqlService.fetchAllLogs();
+
+      if (users.length > 0) this.data.users = users;
+      if (links.length > 0) this.data.links = links;
+      if (settings) this.data.settings = settings;
+      if (visits.length > 0) this.data.visits = visits;
+      if (logs.length > 0) this.data.logs = logs;
+
+      console.log('✅ Đã tải thành công dữ liệu từ MySQL!');
+    } catch (e) {
+      console.error('❌ Lỗi khi tải dữ liệu từ MySQL:', e);
+    }
+  }
+
+  private loadLocal(): DatabaseSchema {
     try {
       const dir = path.dirname(DB_PATH);
       if (!fs.existsSync(dir)) {
@@ -220,6 +227,11 @@ class DBManager {
     };
     this.data.users.push(newUser);
     this.save();
+
+    if (mysqlService.isConnected) {
+      mysqlService.saveUser(newUser);
+    }
+
     const { password_hash, ...publicUser } = newUser;
     return publicUser;
   }
@@ -234,6 +246,11 @@ class DBManager {
       updated_at: new Date().toISOString()
     };
     this.save();
+
+    if (mysqlService.isConnected) {
+      mysqlService.saveUser(this.data.users[idx]);
+    }
+
     const { password_hash, ...publicUser } = this.data.users[idx];
     return publicUser;
   }
@@ -241,9 +258,13 @@ class DBManager {
   deleteUser(id: string): boolean {
     const initialLen = this.data.users.length;
     this.data.users = this.data.users.filter(u => u.id !== id);
-    // Also cleanup links
     this.data.links = this.data.links.filter(l => l.user_id !== id);
     this.save();
+
+    if (mysqlService.isConnected) {
+      mysqlService.deleteUser(id);
+    }
+
     return this.data.users.length < initialLen;
   }
 
@@ -286,6 +307,11 @@ class DBManager {
     };
     this.data.links.unshift(newLink);
     this.save();
+
+    if (mysqlService.isConnected) {
+      mysqlService.saveLink(newLink);
+    }
+
     return newLink;
   }
 
@@ -298,6 +324,11 @@ class DBManager {
       updated_at: new Date().toISOString()
     };
     this.save();
+
+    if (mysqlService.isConnected) {
+      mysqlService.saveLink(this.data.links[idx]);
+    }
+
     return this.data.links[idx];
   }
 
@@ -305,6 +336,11 @@ class DBManager {
     const len = this.data.links.length;
     this.data.links = this.data.links.filter(l => l.id !== id);
     this.save();
+
+    if (mysqlService.isConnected) {
+      mysqlService.deleteLink(id);
+    }
+
     return this.data.links.length < len;
   }
 
@@ -313,6 +349,10 @@ class DBManager {
     if (link) {
       link.clicks += 1;
       this.save();
+
+      if (mysqlService.isConnected) {
+        mysqlService.incrementClicks(id);
+      }
     }
   }
 
@@ -324,6 +364,11 @@ class DBManager {
   updateSettings(updates: Partial<SiteSettings>): SiteSettings {
     this.data.settings = { ...this.data.settings, ...updates };
     this.save();
+
+    if (mysqlService.isConnected) {
+      mysqlService.saveSettings(this.data.settings);
+    }
+
     return this.data.settings;
   }
 
@@ -339,6 +384,11 @@ class DBManager {
       this.data.visits = this.data.visits.slice(0, 5000);
     }
     this.save();
+
+    if (mysqlService.isConnected) {
+      mysqlService.saveVisit(newVisit);
+    }
+
     return newVisit;
   }
 
@@ -363,6 +413,11 @@ class DBManager {
       this.data.logs = this.data.logs.slice(0, 1000);
     }
     this.save();
+
+    if (mysqlService.isConnected) {
+      mysqlService.saveLog(newLog);
+    }
+
     return newLog;
   }
 
