@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { ShieldCheck } from 'lucide-react';
 import { User } from './types.js';
 import { api } from './lib/api.js';
 import { Navbar } from './components/Navbar.js';
@@ -24,11 +25,28 @@ import { ClickAnalyticsCard } from './components/ClickAnalyticsCard.js';
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loadingUser, setLoadingUser] = useState(true);
-  const [currentPath, setCurrentPath] = useState('/dashboard');
+  
+  // Get initial path from window location if available
+  const getInitialPath = () => {
+    if (typeof window !== 'undefined') {
+      const p = window.location.pathname;
+      if (p.startsWith('/manager')) return p;
+      if (p === '/login') return '/login';
+      if (p === '/register') return '/register';
+    }
+    return '/manager';
+  };
+
+  const [currentPath, setCurrentPath] = useState<string>(getInitialPath());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [siteConfig, setSiteConfig] = useState({
+  const [siteConfig, setSiteConfig] = useState<{
+    site_name: string;
+    site_domain: string;
+    private_mode_enable?: boolean;
+  }>({
     site_name: 'Smart Link OG',
-    site_domain: typeof window !== 'undefined' ? window.location.origin : ''
+    site_domain: typeof window !== 'undefined' ? window.location.origin : '',
+    private_mode_enable: false
   });
 
   // Modal states
@@ -56,7 +74,8 @@ export default function App() {
       .then(cfg => {
         setSiteConfig({
           site_name: cfg.site_name || 'Smart Link OG',
-          site_domain: cfg.site_domain || (typeof window !== 'undefined' ? window.location.origin : '')
+          site_domain: cfg.site_domain || (typeof window !== 'undefined' ? window.location.origin : ''),
+          private_mode_enable: Boolean(cfg.private_mode_enable)
         });
       })
       .catch(console.error);
@@ -68,6 +87,8 @@ export default function App() {
           setUser(u);
           if (u.must_change_password) {
             setCurrentPath('/dashboard/password');
+          } else if (currentPath === '/login' || currentPath === '/register' || currentPath === '/') {
+            setCurrentPath('/manager');
           }
         })
         .catch(() => {
@@ -87,13 +108,19 @@ export default function App() {
     if (u.must_change_password) {
       setCurrentPath('/dashboard/password');
     } else {
-      setCurrentPath('/dashboard');
+      if (typeof window !== 'undefined' && window.history.pushState) {
+        window.history.pushState({}, '', '/manager');
+      }
+      setCurrentPath('/manager');
     }
   };
 
   const handleLogout = () => {
     api.logout();
     setUser(null);
+    if (typeof window !== 'undefined' && window.history.pushState) {
+      window.history.pushState({}, '', '/login');
+    }
     setCurrentPath('/login');
   };
 
@@ -103,7 +130,11 @@ export default function App() {
       setCurrentPath('/dashboard/password');
       return;
     }
-    setCurrentPath(path);
+    const targetPath = (path === '/dashboard') ? '/manager' : path;
+    if (typeof window !== 'undefined' && window.history.pushState) {
+      window.history.pushState({}, '', targetPath);
+    }
+    setCurrentPath(targetPath);
   };
 
   const openQR = (slug: string, dest: string) => {
@@ -127,7 +158,7 @@ export default function App() {
 
   // Auth pages (Login / Register) without sidebar
   if (!user) {
-    if (currentPath === '/register') {
+    if (currentPath === '/register' && !siteConfig.private_mode_enable) {
       return (
         <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
           <Navbar
@@ -160,6 +191,17 @@ export default function App() {
           siteName={siteConfig.site_name}
           siteDomain={siteConfig.site_domain}
         />
+        {siteConfig.private_mode_enable && (
+          <div className="max-w-md mx-auto w-full pt-4 px-4">
+            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-center gap-2.5 shadow-2xs">
+              <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0" />
+              <div>
+                <span className="font-bold block text-amber-800">Website đang ở Chế độ Riêng tư (Private Mode)</span>
+                <span>Truy cập trực tiếp bị hạn chế. Vui lòng đăng nhập tại <code className="font-mono bg-amber-100 px-1 py-0.5 rounded">/login</code> để tới trang quản lý <code className="font-mono bg-amber-100 px-1 py-0.5 rounded">/manager</code>.</span>
+              </div>
+            </div>
+          </div>
+        )}
         <LoginView
           onLoginSuccess={handleLoginSuccess}
           onNavigate={setCurrentPath}
@@ -198,7 +240,7 @@ export default function App() {
         />
 
         <main className="flex-1 p-3.5 sm:p-6 overflow-y-auto max-w-7xl mx-auto w-full min-w-0">
-          {currentPath === '/dashboard' && (
+          {(currentPath === '/manager' || currentPath === '/dashboard') && (
             <DashboardView
               user={user}
               onNavigate={handleNavigate}
@@ -209,7 +251,7 @@ export default function App() {
             />
           )}
 
-          {currentPath === '/dashboard/create' && (
+          {(currentPath === '/manager/create' || currentPath === '/dashboard/create') && (
             <CreateLinkView
               user={user}
               onNavigate={handleNavigate}
@@ -217,7 +259,7 @@ export default function App() {
             />
           )}
 
-          {currentPath === '/dashboard/links' && (
+          {(currentPath === '/manager/links' || currentPath === '/dashboard/links') && (
             <MyLinksView
               user={user}
               onOpenQR={openQR}
@@ -227,7 +269,7 @@ export default function App() {
             />
           )}
 
-          {currentPath === '/dashboard/analytics' && (
+          {(currentPath === '/manager/analytics' || currentPath === '/dashboard/analytics') && (
             <div className="space-y-4">
               <div className="border-b border-slate-200 pb-3">
                 <h1 className="text-xl sm:text-2xl font-bold text-slate-800">Phân Tích Tỷ Lệ Click Vùng & Đối Tượng</h1>
@@ -237,7 +279,7 @@ export default function App() {
             </div>
           )}
 
-          {currentPath === '/dashboard/password' && (
+          {(currentPath === '/manager/password' || currentPath === '/dashboard/password') && (
             <PasswordView
               user={user}
               onPasswordChanged={(updatedUser) => setUser(updatedUser)}

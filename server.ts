@@ -1355,7 +1355,8 @@ app.get('/api/public/config', (req: Request, res: Response) => {
     cloudflare_site_key: settings.cloudflare_site_key || '',
     default_expiration_days,
     allow_unlimited_expiration,
-    max_expiration_days
+    max_expiration_days,
+    private_mode_enable: settings.private_mode_enable ?? false
   });
 });
 
@@ -1390,7 +1391,8 @@ app.get('/api/public-settings', (req: Request, res: Response) => {
     cloudflare_site_key: settings.cloudflare_site_key || '',
     default_expiration_days,
     allow_unlimited_expiration,
-    max_expiration_days
+    max_expiration_days,
+    private_mode_enable: settings.private_mode_enable ?? false
   });
 });
 
@@ -1405,6 +1407,7 @@ app.get('/:slug', (req: Request, res: Response, next: NextFunction) => {
     'login',
     'register',
     'dashboard',
+    'manager',
     'admin',
     'api',
     'uploads',

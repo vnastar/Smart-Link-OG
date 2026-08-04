@@ -132,6 +132,7 @@ export const api = {
     default_expiration_days?: number;
     allow_unlimited_expiration?: boolean;
     max_expiration_days?: number;
+    private_mode_enable?: boolean;
   }> {
     try {
       return await this.request('/api/public/config');

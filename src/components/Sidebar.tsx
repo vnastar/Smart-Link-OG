@@ -24,11 +24,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isLocked = user.must_change_password;
 
   const userMenuItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/dashboard/create', label: 'Tạo Link', icon: PlusCircle },
-    { path: '/dashboard/links', label: 'Danh sách Link', icon: List },
-    { path: '/dashboard/analytics', label: 'Phân tích Click', icon: BarChart3 },
-    { path: '/dashboard/password', label: 'Đổi mật khẩu', icon: KeyRound }
+    { path: '/manager', label: 'Bảng Quản Lý', icon: LayoutDashboard },
+    { path: '/manager/create', label: 'Tạo Link mới', icon: PlusCircle },
+    { path: '/manager/links', label: 'Danh sách Link', icon: List },
+    { path: '/manager/analytics', label: 'Phân tích Click', icon: BarChart3 },
+    { path: '/manager/password', label: 'Đổi mật khẩu', icon: KeyRound }
   ];
 
   const adminMenuItems = [
@@ -103,8 +103,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <nav className="space-y-1">
             {userMenuItems.map((item) => {
               const Icon = item.icon;
-              const active = currentPath === item.path;
-              const disabled = isLocked && item.path !== '/dashboard/password';
+              const active = currentPath === item.path || (item.path === '/manager' && currentPath === '/dashboard') || (currentPath.replace('/dashboard', '/manager') === item.path);
+              const disabled = isLocked && item.path !== '/manager/password' && item.path !== '/dashboard/password';
 
               return (
                 <button

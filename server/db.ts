@@ -59,7 +59,8 @@ const DEFAULT_SETTINGS: SiteSettings = {
   captcha_provider: 'recaptcha',
   default_expiration_days: 0,
   allow_unlimited_expiration: true,
-  max_expiration_days: 0
+  max_expiration_days: 0,
+  private_mode_enable: false
 };
 
 const SEED_DATA: DatabaseSchema = {

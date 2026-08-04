@@ -599,6 +599,55 @@ export const AdminSettingsView: React.FC = () => {
           </div>
         </div>
 
+        {/* Section: Private Website Mode */}
+        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
+          <h3 className="font-bold text-base text-slate-900 flex items-center gap-2 border-b border-slate-200 pb-2">
+            <ShieldCheck className="w-5 h-5 text-amber-600" />
+            Chế Độ Website Riêng Tư (Private Mode / Stealth Site)
+          </h3>
+
+          <div className="p-4 bg-amber-50/80 border border-amber-200 rounded-xl space-y-2 text-xs text-amber-900">
+            <div className="flex items-center gap-2 font-bold text-amber-800 text-sm">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Bảo mật tối đa - Khóa trang công khai</span>
+            </div>
+            <p>
+              Khi kích hoạt <strong>Chế Độ Private Website</strong>:
+            </p>
+            <ul className="list-disc pl-5 space-y-1 text-slate-700">
+              <li><strong>Chặn truy cập trực tiếp:</strong> Người dùng vãng lai truy cập trang chủ <code>/</code> hoặc trang đăng ký <code>/register</code> sẽ bị chặn và tự động chuyển hướng về trang đăng nhập <code>/login</code>.</li>
+              <li><strong>Điều hướng quản lý:</strong> Sau khi đăng nhập thành công, hệ thống chuyển hướng thẳng người dùng tới trang quản lý tại <code>/manager</code>.</li>
+              <li><strong>Link rút gọn <code>/[slug]</code> vẫn hoạt động 100%:</strong> Bất kể khi người dùng nhấp vào link hay Bot mạng xã hội (Facebook, Telegram, Zalo...) truy cập cào ảnh OpenGraph, liên kết vẫn hoạt động hoàn toàn bình thường.</li>
+            </ul>
+          </div>
+
+          <label className="flex items-center gap-3.5 p-4 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-100 transition">
+            <input
+              type="checkbox"
+              checked={Boolean(settings.private_mode_enable)}
+              onChange={(e) => setSettings({ ...settings, private_mode_enable: e.target.checked })}
+              className="w-5 h-5 accent-indigo-600 rounded cursor-pointer"
+            />
+            <div>
+              <span className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                Kích hoạt Chế độ Website Riêng Tư (Private Website Mode)
+                {settings.private_mode_enable ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300">
+                    ĐANG BẬT
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-200 text-slate-600">
+                    TẮT (CÔNG KHAI)
+                  </span>
+                )}
+              </span>
+              <span className="text-xs text-slate-500 block mt-0.5">
+                Chỉ cho phép đăng nhập tại <code>/login</code> và làm việc tại trang quản lý <code>/manager</code>. Ẩn toàn bộ trang công khai đối với người lạ.
+              </span>
+            </div>
+          </label>
+        </div>
+
         {/* Section: Link Expiration Rules */}
         <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
           <h3 className="font-bold text-base text-slate-900 flex items-center gap-2 border-b border-slate-200 pb-2">

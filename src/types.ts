@@ -57,6 +57,7 @@ export interface SiteSettings {
   default_expiration_days?: number;
   allow_unlimited_expiration?: boolean;
   max_expiration_days?: number;
+  private_mode_enable?: boolean;
 }
 
 export interface VisitLog {
