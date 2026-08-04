@@ -125,6 +125,10 @@ export const api = {
     favicon?: string;
     cloudflare_turnstile_enable?: boolean;
     cloudflare_site_key?: string;
+    recaptcha_enable?: boolean;
+    recaptcha_site_key?: string;
+    recaptcha_version?: 'v2_checkbox' | 'v2_invisible' | 'v3';
+    captcha_provider?: 'recaptcha' | 'turnstile' | 'both';
     default_expiration_days?: number;
     allow_unlimited_expiration?: boolean;
     max_expiration_days?: number;
@@ -141,7 +145,7 @@ export const api = {
   },
 
   // Auth
-  async login(username: string, password: string, cfTurnstileResponse?: string): Promise<{ token: string; user: User }> {
+  async login(username: string, password: string, captchaResponse?: string): Promise<{ token: string; user: User }> {
     const cleanUsername = String(username || '').trim();
     const cleanPassword = String(password || '');
     const data = await this.request('/api/auth/login', {
@@ -149,7 +153,9 @@ export const api = {
       body: JSON.stringify({
         username: cleanUsername,
         password: cleanPassword,
-        cf_turnstile_response: cfTurnstileResponse
+        g_recaptcha_response: captchaResponse,
+        cf_turnstile_response: captchaResponse,
+        captcha_token: captchaResponse
       })
     });
     if (data?.token) {
@@ -363,6 +369,16 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({
         cf_turnstile_response: cfTurnstileResponse,
+        secret_key: secretKey
+      })
+    });
+  },
+
+  async testRecaptchaConfig(gRecaptchaResponse: string, secretKey?: string): Promise<{ success: boolean; message: string }> {
+    return this.request('/api/admin/verify-recaptcha-test', {
+      method: 'POST',
+      body: JSON.stringify({
+        g_recaptcha_response: gRecaptchaResponse,
         secret_key: secretKey
       })
     });

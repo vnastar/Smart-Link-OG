@@ -379,7 +379,7 @@ export class MySQLService {
           link.og_site_name || '',
           link.clicks || 0,
           link.status || 'active',
-          link.redirect_code || 302,
+          (link as any).redirect_code || 302,
           expiresAt
         ]
       );

@@ -15,21 +15,25 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Cloudflare Turnstile state
-  const [cfEnabled, setCfEnabled] = useState(false);
-  const [cfSiteKey, setCfSiteKey] = useState('');
-  const [cfToken, setCfToken] = useState('');
-  const [cfLoading, setCfLoading] = useState(true);
-  const [cfFallbackActive, setCfFallbackActive] = useState(false);
-  const turnstileContainerRef = useRef<HTMLDivElement>(null);
-  const widgetIdRef = useRef<string | null>(null);
+  // CAPTCHA state (Google reCAPTCHA & Cloudflare Turnstile)
+  const [captchaEnabled, setCaptchaEnabled] = useState(false);
+  const [captchaProvider, setCaptchaProvider] = useState<'recaptcha' | 'turnstile'>('recaptcha');
+  const [siteKey, setSiteKey] = useState('');
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaLoading, setCaptchaLoading] = useState(true);
+  const [captchaFallbackActive, setCaptchaFallbackActive] = useState(false);
+  const captchaContainerRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<any>(null);
 
   useEffect(() => {
-    // Check cached state first for instantaneous display on mobile
+    // Check cached state for instant render
     try {
-      const cached = localStorage.getItem('cf_turnstile_enable');
-      if (cached === 'true') {
-        setCfEnabled(true);
+      const cachedProvider = localStorage.getItem('captcha_provider');
+      const cachedEnable = localStorage.getItem('captcha_enable');
+      if (cachedEnable === 'true') {
+        setCaptchaEnabled(true);
+        if (cachedProvider === 'turnstile') setCaptchaProvider('turnstile');
+        else setCaptchaProvider('recaptcha');
       }
     } catch (e) {}
 
@@ -38,25 +42,43 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
       try {
         const cfg = await api.getPublicConfig();
         if (!isMounted) return;
-        const isTurnstileOn = Boolean(cfg.cloudflare_turnstile_enable) || String(cfg.cloudflare_turnstile_enable) === 'true';
-        if (isTurnstileOn) {
-          setCfEnabled(true);
-          setCfSiteKey(cfg.cloudflare_site_key || '1x00000000000000000000AA');
-          try { localStorage.setItem('cf_turnstile_enable', 'true'); } catch (e) {}
+
+        const isRecaptcha = Boolean(cfg.recaptcha_enable) || String(cfg.recaptcha_enable) === 'true';
+        const isTurnstile = Boolean(cfg.cloudflare_turnstile_enable) || String(cfg.cloudflare_turnstile_enable) === 'true';
+
+        if (isRecaptcha) {
+          setCaptchaEnabled(true);
+          setCaptchaProvider('recaptcha');
+          setSiteKey(cfg.recaptcha_site_key || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI');
+          try {
+            localStorage.setItem('captcha_enable', 'true');
+            localStorage.setItem('captcha_provider', 'recaptcha');
+          } catch (e) {}
+        } else if (isTurnstile) {
+          setCaptchaEnabled(true);
+          setCaptchaProvider('turnstile');
+          setSiteKey(cfg.cloudflare_site_key || '1x00000000000000000000AA');
+          try {
+            localStorage.setItem('captcha_enable', 'true');
+            localStorage.setItem('captcha_provider', 'turnstile');
+          } catch (e) {}
         } else {
-          setCfEnabled(false);
-          try { localStorage.setItem('cf_turnstile_enable', 'false'); } catch (e) {}
+          setCaptchaEnabled(false);
+          try { localStorage.setItem('captcha_enable', 'false'); } catch (e) {}
         }
       } catch (err) {
-        // Fallback fetch directly if api method failed
         try {
           const res = await fetch('/api/public/config');
           const cfg = await res.json();
           if (!isMounted) return;
-          if (cfg.cloudflare_turnstile_enable) {
-            setCfEnabled(true);
-            setCfSiteKey(cfg.cloudflare_site_key || '1x00000000000000000000AA');
-            try { localStorage.setItem('cf_turnstile_enable', 'true'); } catch (e) {}
+          if (cfg.recaptcha_enable) {
+            setCaptchaEnabled(true);
+            setCaptchaProvider('recaptcha');
+            setSiteKey(cfg.recaptcha_site_key || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI');
+          } else if (cfg.cloudflare_turnstile_enable) {
+            setCaptchaEnabled(true);
+            setCaptchaProvider('turnstile');
+            setSiteKey(cfg.cloudflare_site_key || '1x00000000000000000000AA');
           }
         } catch (e) {}
       }
@@ -67,102 +89,153 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
   }, []);
 
   useEffect(() => {
-    if (!cfEnabled) return;
+    if (!captchaEnabled) return;
 
-    const keyToUse = (cfSiteKey && cfSiteKey.trim()) ? cfSiteKey.trim() : '1x00000000000000000000AA';
+    const keyToUse = (siteKey && siteKey.trim())
+      ? siteKey.trim()
+      : (captchaProvider === 'recaptcha' ? '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI' : '1x00000000000000000000AA');
+
     let isCancelled = false;
     let attemptCount = 0;
     let pollInterval: any = null;
 
-    // Safety timeout: activate fallback interactive captcha after 1 second if iframe didn't load
     const safetyTimer = setTimeout(() => {
-      if (!isCancelled && !cfToken) {
-        setCfFallbackActive(true);
-        setCfLoading(false);
+      if (!isCancelled && !captchaToken) {
+        setCaptchaFallbackActive(true);
+        setCaptchaLoading(false);
       }
-    }, 1000);
+    }, 1200);
 
     const renderWidget = () => {
       if (isCancelled) return;
       attemptCount++;
+      const container = captchaContainerRef.current;
 
-      const container = turnstileContainerRef.current;
-      const turnstile = (window as any).turnstile;
-
-      if (turnstile && container) {
-        if (pollInterval) {
-          clearInterval(pollInterval);
-          pollInterval = null;
-        }
-
-        try {
-          if (widgetIdRef.current !== null) {
-            try {
-              turnstile.remove(widgetIdRef.current);
-            } catch (e) {}
-            widgetIdRef.current = null;
-          }
-          container.innerHTML = '';
-
-          widgetIdRef.current = turnstile.render(container, {
-            sitekey: keyToUse,
-            theme: 'light',
-            callback: (token: string) => {
-              if (!isCancelled) {
-                setCfToken(token);
-                setError('');
-                setCfLoading(false);
-                setCfFallbackActive(false);
+      if (captchaProvider === 'recaptcha') {
+        const grecaptcha = (window as any).grecaptcha;
+        if (grecaptcha && grecaptcha.render && container) {
+          if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+          try {
+            container.innerHTML = '';
+            widgetIdRef.current = grecaptcha.render(container, {
+              sitekey: keyToUse,
+              theme: 'light',
+              callback: (token: string) => {
+                if (!isCancelled) {
+                  setCaptchaToken(token);
+                  setError('');
+                  setCaptchaLoading(false);
+                  setCaptchaFallbackActive(false);
+                }
+              },
+              'expired-callback': () => {
+                if (!isCancelled) {
+                  setCaptchaToken('');
+                  setError('Mã xác minh Google reCAPTCHA đã hết hạn, vui lòng tích chọn lại.');
+                }
+              },
+              'error-callback': () => {
+                if (!isCancelled) {
+                  setCaptchaToken('');
+                  setCaptchaFallbackActive(true);
+                  setCaptchaLoading(false);
+                }
               }
-            },
-            'expired-callback': () => {
-              if (!isCancelled) {
-                setCfToken('');
-                setError('Mã xác minh Cloudflare đã hết hạn, vui lòng tích chọn lại.');
-              }
-            },
-            'error-callback': () => {
-              if (!isCancelled) {
-                setCfToken('');
-                setCfFallbackActive(true);
-                setCfLoading(false);
-              }
+            });
+            setCaptchaLoading(false);
+          } catch (err) {
+            console.error('reCAPTCHA render exception:', err);
+            if (attemptCount > 8 && !isCancelled) {
+              setCaptchaFallbackActive(true);
+              setCaptchaLoading(false);
             }
-          });
-          setCfLoading(false);
-        } catch (err) {
-          console.error('Turnstile render exception:', err);
-          if (attemptCount > 10 && !isCancelled) {
-            setCfFallbackActive(true);
-            setCfLoading(false);
           }
         }
       } else {
-        if (attemptCount > 20 && !isCancelled) {
-          if (pollInterval) {
-            clearInterval(pollInterval);
-            pollInterval = null;
+        const turnstile = (window as any).turnstile;
+        if (turnstile && container) {
+          if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+          try {
+            if (widgetIdRef.current !== null && turnstile.remove) {
+              try { turnstile.remove(widgetIdRef.current); } catch (e) {}
+              widgetIdRef.current = null;
+            }
+            container.innerHTML = '';
+            widgetIdRef.current = turnstile.render(container, {
+              sitekey: keyToUse,
+              theme: 'light',
+              callback: (token: string) => {
+                if (!isCancelled) {
+                  setCaptchaToken(token);
+                  setError('');
+                  setCaptchaLoading(false);
+                  setCaptchaFallbackActive(false);
+                }
+              },
+              'expired-callback': () => {
+                if (!isCancelled) {
+                  setCaptchaToken('');
+                  setError('Mã xác minh Turnstile đã hết hạn, vui lòng tích chọn lại.');
+                }
+              },
+              'error-callback': () => {
+                if (!isCancelled) {
+                  setCaptchaToken('');
+                  setCaptchaFallbackActive(true);
+                  setCaptchaLoading(false);
+                }
+              }
+            });
+            setCaptchaLoading(false);
+          } catch (err) {
+            console.error('Turnstile render exception:', err);
+            if (attemptCount > 8 && !isCancelled) {
+              setCaptchaFallbackActive(true);
+              setCaptchaLoading(false);
+            }
           }
-          setCfFallbackActive(true);
-          setCfLoading(false);
         }
+      }
+
+      if (attemptCount > 18 && !isCancelled) {
+        if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+        setCaptchaFallbackActive(true);
+        setCaptchaLoading(false);
       }
     };
 
-    const existingScript = document.getElementById('cf-turnstile-script');
-    if (!existingScript) {
-      const script = document.createElement('script');
-      script.id = 'cf-turnstile-script';
-      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
-      script.async = true;
-      script.defer = true;
-      script.onerror = () => {
-        if (!isCancelled) {
-          setCfFallbackActive(true);
-          setCfLoading(false);
-        }
-      };
-      document.body.appendChild(script);
+    if (captchaProvider === 'recaptcha') {
+      const existingScript = document.getElementById('google-recaptcha-script');
+      if (!existingScript) {
+        const script = document.createElement('script');
+        script.id = 'google-recaptcha-script';
+        script.src = 'https://www.google.com/recaptcha/api.js?render=explicit';
+        script.async = true;
+        script.defer = true;
+        script.onerror = () => {
+          if (!isCancelled) {
+            setCaptchaFallbackActive(true);
+            setCaptchaLoading(false);
+          }
+        };
+        document.body.appendChild(script);
+      }
+    } else {
+      const existingScript = document.getElementById('cf-turnstile-script');
+      if (!existingScript) {
+        const script = document.createElement('script');
+        script.id = 'cf-turnstile-script';
+        script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+        script.async = true;
+        script.defer = true;
+        script.onerror = () => {
+          if (!isCancelled) {
+            setCaptchaFallbackActive(true);
+            setCaptchaLoading(false);
+          }
+        };
+        document.body.appendChild(script);
+      }
     }
 
     pollInterval = setInterval(renderWidget, 150);
@@ -173,12 +246,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
       clearTimeout(safetyTimer);
       if (pollInterval) clearInterval(pollInterval);
     };
-  }, [cfEnabled, cfSiteKey]);
+  }, [captchaEnabled, captchaProvider, siteKey]);
 
   const handleVerifyPass = () => {
-    setCfToken('dev_pass_token_' + Date.now());
+    setCaptchaToken('g_pass_token_' + Date.now());
     setError('');
-    setCfFallbackActive(false);
+    setCaptchaFallbackActive(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -188,10 +261,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
       return;
     }
 
-    if (cfEnabled && !cfToken) {
-      setError('Vui lòng tích chọn xác minh "Tôi không phải là người máy" bên dưới trước khi đăng nhập');
-      setCfFallbackActive(true);
-      turnstileContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (captchaEnabled && !captchaToken) {
+      const captchaName = captchaProvider === 'recaptcha' ? 'Google reCAPTCHA' : 'Cloudflare Turnstile';
+      setError(`Vui lòng tích chọn xác minh ${captchaName} "Tôi không phải là người máy" trước khi đăng nhập`);
+      setCaptchaFallbackActive(true);
+      captchaContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
@@ -199,33 +273,43 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
     setError('');
 
     try {
-      const data = await api.login(username, password, cfToken);
+      const data = await api.login(username, password, captchaToken);
       onLoginSuccess(data.user);
     } catch (err: any) {
       const errMsg = err.message || 'Đăng nhập thất bại';
       setError(errMsg);
 
-      // Auto-enable CF captcha section if backend enforces it or returns turnstile error
       if (
         errMsg.toLowerCase().includes('cloudflare') ||
+        errMsg.toLowerCase().includes('recaptcha') ||
         errMsg.toLowerCase().includes('turnstile') ||
         errMsg.toLowerCase().includes('xác minh') ||
         errMsg.toLowerCase().includes('captcha')
       ) {
-        setCfEnabled(true);
-        setCfFallbackActive(true);
+        setCaptchaEnabled(true);
+        setCaptchaFallbackActive(true);
         api.getPublicConfig().then((cfg) => {
-          setCfSiteKey(cfg.cloudflare_site_key || '1x00000000000000000000AA');
+          if (cfg.recaptcha_enable) {
+            setCaptchaProvider('recaptcha');
+            setSiteKey(cfg.recaptcha_site_key || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI');
+          } else if (cfg.cloudflare_turnstile_enable) {
+            setCaptchaProvider('turnstile');
+            setSiteKey(cfg.cloudflare_site_key || '1x00000000000000000000AA');
+          }
         }).catch(() => {});
         setTimeout(() => {
-          turnstileContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          captchaContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 100);
       }
 
-      if (cfEnabled && (window as any).turnstile && widgetIdRef.current !== null) {
+      if (captchaEnabled && widgetIdRef.current !== null) {
         try {
-          (window as any).turnstile.reset(widgetIdRef.current);
-          setCfToken('');
+          if (captchaProvider === 'recaptcha' && (window as any).grecaptcha?.reset) {
+            (window as any).grecaptcha.reset(widgetIdRef.current);
+          } else if ((window as any).turnstile?.reset) {
+            (window as any).turnstile.reset(widgetIdRef.current);
+          }
+          setCaptchaToken('');
         } catch (e) {}
       }
     } finally {
@@ -286,15 +370,15 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
           </div>
 
           {/* Captcha Section */}
-          {cfEnabled && (
+          {captchaEnabled && (
             <div id="captcha-section" className="bg-slate-50 border-2 border-indigo-100 rounded-2xl p-4 space-y-3 shadow-xs">
               <div className="flex items-center justify-between w-full">
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
                   <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0" />
-                  <span>Xác minh An toàn Captcha</span>
+                  <span>Xác minh An toàn {captchaProvider === 'recaptcha' ? 'Google reCAPTCHA' : 'Cloudflare Turnstile'}</span>
                 </div>
 
-                {cfToken ? (
+                {captchaToken ? (
                   <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-2.5 py-1 rounded-md flex items-center gap-1 animate-fade-in shadow-2xs">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     Đã xác minh
@@ -307,7 +391,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
               </div>
 
               {/* Verified Success Message Box */}
-              {cfToken ? (
+              {captchaToken ? (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-800 font-semibold flex items-center gap-2.5 animate-fade-in">
                   <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
                   <div>
@@ -319,9 +403,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
                 </div>
               ) : (
                 <div className="space-y-2.5 pt-1">
-                  {/* Cloudflare Turnstile Official Iframe Render Container */}
+                  {/* Official Widget Render Container */}
                   <div
-                    ref={turnstileContainerRef}
+                    ref={captchaContainerRef}
                     className="flex justify-center min-h-[65px] w-full overflow-hidden"
                   />
 
@@ -340,7 +424,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onNavigate
                         <Sparkles className="w-3.5 h-3.5 text-indigo-500 shrink-0 animate-pulse" />
                       </div>
                       <div className="text-[10px] text-slate-500 mt-0.5">
-                        Bấm vào đây để tích chọn xác minh người dùng
+                        Bấm vào đây để tích chọn xác minh người dùng ({captchaProvider === 'recaptcha' ? 'Google reCAPTCHA' : 'Cloudflare Turnstile'})
                       </div>
                     </div>
                   </button>

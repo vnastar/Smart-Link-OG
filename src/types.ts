@@ -48,6 +48,11 @@ export interface SiteSettings {
   cloudflare_turnstile_enable?: boolean;
   cloudflare_site_key?: string;
   cloudflare_secret_key?: string;
+  recaptcha_enable?: boolean;
+  recaptcha_site_key?: string;
+  recaptcha_secret_key?: string;
+  recaptcha_version?: 'v2_checkbox' | 'v2_invisible' | 'v3';
+  captcha_provider?: 'recaptcha' | 'turnstile' | 'both';
   default_expiration_days?: number;
   allow_unlimited_expiration?: boolean;
   max_expiration_days?: number;

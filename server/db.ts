@@ -52,6 +52,11 @@ const DEFAULT_SETTINGS: SiteSettings = {
   cloudflare_turnstile_enable: false,
   cloudflare_site_key: '',
   cloudflare_secret_key: '',
+  recaptcha_enable: false,
+  recaptcha_site_key: '',
+  recaptcha_secret_key: '',
+  recaptcha_version: 'v2_checkbox',
+  captcha_provider: 'recaptcha',
   default_expiration_days: 0,
   allow_unlimited_expiration: true,
   max_expiration_days: 0
