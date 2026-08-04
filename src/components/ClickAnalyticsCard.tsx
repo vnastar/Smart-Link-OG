@@ -391,7 +391,7 @@ export const ClickAnalyticsCard: React.FC<ClickAnalyticsCardProps> = ({ isAdmin 
             <div className="space-y-3">
               <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
                 <span>Thống kê hiệu suất click từng link trong khoảng thời gian đã chọn:</span>
-                <span>Sắp xếp theo Lượt Click</span>
+                <span className="hidden sm:inline">Sắp xếp theo Lượt Click</span>
               </div>
 
               {!data.links_breakdown || data.links_breakdown.length === 0 ? (
@@ -399,56 +399,99 @@ export const ClickAnalyticsCard: React.FC<ClickAnalyticsCardProps> = ({ isAdmin 
                   Chưa ghi nhận dữ liệu click theo link nào.
                 </div>
               ) : (
-                <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs text-slate-700">
-                      <thead className="bg-slate-50 border-b border-slate-200 font-bold text-slate-600 uppercase tracking-wider text-[10px]">
-                        <tr>
-                          <th className="px-3.5 py-2.5">Link / Slug</th>
-                          <th className="px-3.5 py-2.5">Tổng Click</th>
-                          <th className="px-3.5 py-2.5">Người dùng (%)</th>
-                          <th className="px-3.5 py-2.5">Bot Preview</th>
-                          <th className="px-3.5 py-2.5">Vị trí Top 1</th>
-                          <th className="px-3.5 py-2.5">Thiết bị Top 1</th>
-                          <th className="px-3.5 py-2.5">Thao tác</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 font-sans text-xs">
-                        {data.links_breakdown.map((l) => (
-                          <tr key={l.link_id} className="hover:bg-slate-50 transition">
-                            <td className="px-3.5 py-2.5 font-medium text-slate-900 max-w-[200px]">
-                              <div className="font-mono text-indigo-600 font-bold">/{l.slug}</div>
-                              <div className="text-[11px] text-slate-500 truncate">{l.title || l.slug}</div>
-                            </td>
-                            <td className="px-3.5 py-2.5 font-bold text-slate-900">
-                              {l.total_clicks}
-                            </td>
-                            <td className="px-3.5 py-2.5 text-emerald-700 font-semibold">
-                              {l.human_clicks} ({l.total_clicks > 0 ? Math.round((l.human_clicks / l.total_clicks) * 100) : 0}%)
-                            </td>
-                            <td className="px-3.5 py-2.5 text-amber-700 font-semibold">
-                              {l.bot_clicks}
-                            </td>
-                            <td className="px-3.5 py-2.5 text-slate-600">
-                              {l.top_region || 'Chưa có'}
-                            </td>
-                            <td className="px-3.5 py-2.5 text-slate-600">
-                              {l.top_device || 'Chưa có'}
-                            </td>
-                            <td className="px-3.5 py-2.5">
-                              <button
-                                onClick={() => setSelectedLink(l.link_id)}
-                                className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold rounded-lg transition"
-                              >
-                                Lọc link này
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                <>
+                  {/* Mobile Cards List (< sm) */}
+                  <div className="block sm:hidden space-y-2.5">
+                    {data.links_breakdown.map((l) => (
+                      <div key={l.link_id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="font-mono text-indigo-600 font-bold text-xs">/{l.slug}</div>
+                            <div className="text-[11px] text-slate-500 line-clamp-1">{l.title || l.slug}</div>
+                          </div>
+                          <button
+                            onClick={() => setSelectedLink(l.link_id)}
+                            className="px-2 py-1 bg-indigo-600 text-white text-[10px] font-bold rounded-lg shrink-0 shadow-2xs"
+                          >
+                            Lọc link
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 text-center bg-white p-2 rounded-lg border border-slate-100 text-[11px]">
+                          <div>
+                            <div className="text-[9px] uppercase text-slate-400 font-medium">Tổng Click</div>
+                            <div className="font-bold text-slate-900 text-xs">{l.total_clicks}</div>
+                          </div>
+                          <div>
+                            <div className="text-[9px] uppercase text-emerald-600 font-medium">Người dùng</div>
+                            <div className="font-bold text-emerald-700 text-xs">{l.human_clicks}</div>
+                          </div>
+                          <div>
+                            <div className="text-[9px] uppercase text-amber-600 font-medium">Bot Preview</div>
+                            <div className="font-bold text-amber-700 text-xs">{l.bot_clicks}</div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1 border-t border-slate-200/60">
+                          <span className="truncate">Top Vùng: <strong className="text-slate-800">{l.top_region || '—'}</strong></span>
+                          <span className="truncate">Top Thiết bị: <strong className="text-slate-800">{l.top_device || '—'}</strong></span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
+
+                  {/* Desktop Table View (>= sm) */}
+                  <div className="hidden sm:block border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs text-slate-700">
+                        <thead className="bg-slate-50 border-b border-slate-200 font-bold text-slate-600 uppercase tracking-wider text-[10px]">
+                          <tr>
+                            <th className="px-3.5 py-2.5">Link / Slug</th>
+                            <th className="px-3.5 py-2.5">Tổng Click</th>
+                            <th className="px-3.5 py-2.5">Người dùng (%)</th>
+                            <th className="px-3.5 py-2.5">Bot Preview</th>
+                            <th className="px-3.5 py-2.5">Vị trí Top 1</th>
+                            <th className="px-3.5 py-2.5">Thiết bị Top 1</th>
+                            <th className="px-3.5 py-2.5">Thao tác</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-sans text-xs">
+                          {data.links_breakdown.map((l) => (
+                            <tr key={l.link_id} className="hover:bg-slate-50 transition">
+                              <td className="px-3.5 py-2.5 font-medium text-slate-900 max-w-[200px]">
+                                <div className="font-mono text-indigo-600 font-bold">/{l.slug}</div>
+                                <div className="text-[11px] text-slate-500 truncate">{l.title || l.slug}</div>
+                              </td>
+                              <td className="px-3.5 py-2.5 font-bold text-slate-900">
+                                {l.total_clicks}
+                              </td>
+                              <td className="px-3.5 py-2.5 text-emerald-700 font-semibold">
+                                {l.human_clicks} ({l.total_clicks > 0 ? Math.round((l.human_clicks / l.total_clicks) * 100) : 0}%)
+                              </td>
+                              <td className="px-3.5 py-2.5 text-amber-700 font-semibold">
+                                {l.bot_clicks}
+                              </td>
+                              <td className="px-3.5 py-2.5 text-slate-600">
+                                {l.top_region || 'Chưa có'}
+                              </td>
+                              <td className="px-3.5 py-2.5 text-slate-600">
+                                {l.top_device || 'Chưa có'}
+                              </td>
+                              <td className="px-3.5 py-2.5">
+                                <button
+                                  onClick={() => setSelectedLink(l.link_id)}
+                                  className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold rounded-lg transition"
+                                >
+                                  Lọc link này
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           )}
@@ -458,7 +501,10 @@ export const ClickAnalyticsCard: React.FC<ClickAnalyticsCardProps> = ({ isAdmin 
             <div className="space-y-3">
               <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
                 <span>Nhật ký 30 lượt truy cập mới nhất:</span>
-                <span>Thời gian thực</span>
+                <span className="text-emerald-600 font-bold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Thời gian thực
+                </span>
               </div>
 
               {!data.recent_visits || data.recent_visits.length === 0 ? (
@@ -466,73 +512,122 @@ export const ClickAnalyticsCard: React.FC<ClickAnalyticsCardProps> = ({ isAdmin 
                   Chưa ghi nhận lượt click nào.
                 </div>
               ) : (
-                <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs text-slate-700">
-                      <thead className="bg-slate-50 border-b border-slate-200 font-bold text-slate-600 uppercase tracking-wider text-[10px]">
-                        <tr>
-                          <th className="px-3 py-2.5">Thời gian</th>
-                          <th className="px-3 py-2.5">Link Slug</th>
-                          <th className="px-3 py-2.5">Đối tượng</th>
-                          <th className="px-3 py-2.5">Vị trí</th>
-                          <th className="px-3 py-2.5">Thiết bị / App</th>
-                          <th className="px-3 py-2.5">Nguồn Referrer</th>
-                          <th className="px-3 py-2.5">IP</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
-                        {data.recent_visits.map((log) => (
-                          <tr key={log.id} className="hover:bg-slate-50/80 transition">
-                            <td className="px-3 py-2 text-slate-500 whitespace-nowrap">
-                              {new Date(log.created_at).toLocaleString('vi-VN')}
-                            </td>
-                            <td className="px-3 py-2 text-indigo-600 font-bold whitespace-nowrap">
-                              /{log.slug}
-                            </td>
-                            <td className="px-3 py-2 whitespace-nowrap">
-                              {log.is_bot ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold font-sans">
-                                  <Bot className="w-3 h-3" /> Bot
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold font-sans font-sans">
-                                  Người dùng
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2 font-sans font-semibold text-slate-800 whitespace-nowrap">
-                              {log.country || 'TP. Hồ Chí Minh'}
-                            </td>
-                            <td className="px-3 py-2 font-sans text-slate-700 whitespace-nowrap">
-                              {log.device} ({log.browser})
-                            </td>
-                            <td className="px-3 py-2 font-sans text-slate-600 whitespace-nowrap max-w-[140px] truncate">
-                              {log.referer || 'Direct'}
-                            </td>
-                            <td className="px-3 py-2 text-slate-400 whitespace-nowrap">
-                              {log.ip}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                <>
+                  {/* Mobile Cards List (< sm) */}
+                  <div className="block sm:hidden space-y-2.5">
+                    {data.recent_visits.map((log) => (
+                      <div key={log.id} className="p-3 bg-white border border-slate-200 rounded-xl space-y-2 shadow-2xs">
+                        <div className="flex items-center justify-between text-xs pb-1.5 border-b border-slate-100">
+                          <span className="text-slate-400 font-mono text-[10px] flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-slate-400" />
+                            {new Date(log.created_at).toLocaleString('vi-VN')}
+                          </span>
+                          <span className="font-mono text-indigo-600 font-bold text-xs">/{log.slug}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-1.5 font-medium text-slate-800">
+                            <MapPin className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                            <span>{log.country || 'TP. Hồ Chí Minh'}</span>
+                          </div>
+                          {log.is_bot ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
+                              <Bot className="w-3 h-3" /> Bot Preview
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                              Người dùng
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 pt-1 text-[11px] text-slate-600">
+                          <div>
+                            <span className="text-slate-400 text-[10px] block">Thiết bị / App:</span>
+                            <span className="font-medium text-slate-800 truncate block">{log.device} ({log.browser})</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 text-[10px] block">Nguồn Referrer:</span>
+                            <span className="font-medium text-slate-800 truncate block">{log.referer || 'Direct / Trực tiếp'}</span>
+                          </div>
+                        </div>
+
+                        <div className="text-[10px] font-mono text-slate-400 pt-1 border-t border-slate-100 flex items-center justify-between">
+                          <span>IP: {log.ip}</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
+
+                  {/* Desktop Table View (>= sm) */}
+                  <div className="hidden sm:block border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs text-slate-700">
+                        <thead className="bg-slate-50 border-b border-slate-200 font-bold text-slate-600 uppercase tracking-wider text-[10px]">
+                          <tr>
+                            <th className="px-3 py-2.5">Thời gian</th>
+                            <th className="px-3 py-2.5">Link Slug</th>
+                            <th className="px-3 py-2.5">Đối tượng</th>
+                            <th className="px-3 py-2.5">Vị trí</th>
+                            <th className="px-3 py-2.5">Thiết bị / App</th>
+                            <th className="px-3 py-2.5">Nguồn Referrer</th>
+                            <th className="px-3 py-2.5">IP</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                          {data.recent_visits.map((log) => (
+                            <tr key={log.id} className="hover:bg-slate-50/80 transition">
+                              <td className="px-3 py-2 text-slate-500 whitespace-nowrap">
+                                {new Date(log.created_at).toLocaleString('vi-VN')}
+                              </td>
+                              <td className="px-3 py-2 text-indigo-600 font-bold whitespace-nowrap">
+                                /{log.slug}
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap">
+                                {log.is_bot ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold font-sans">
+                                    <Bot className="w-3 h-3" /> Bot
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold font-sans">
+                                    Người dùng
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 font-sans font-semibold text-slate-800 whitespace-nowrap">
+                                {log.country || 'TP. Hồ Chí Minh'}
+                              </td>
+                              <td className="px-3 py-2 font-sans text-slate-700 whitespace-nowrap">
+                                {log.device} ({log.browser})
+                              </td>
+                              <td className="px-3 py-2 font-sans text-slate-600 whitespace-nowrap max-w-[140px] truncate">
+                                {log.referer || 'Direct'}
+                              </td>
+                              <td className="px-3 py-2 text-slate-400 whitespace-nowrap">
+                                {log.ip}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           )}
 
-          {/* Hourly Trend Visual Graph */}
+          {/* Hourly Trend Visual Graph (Responsive 24H Scrollable) */}
           {data.hourly_trend && data.hourly_trend.length > 0 && (
-            <div className="pt-4 border-t border-slate-100">
-              <div className="flex items-center justify-between mb-3">
+            <div className="pt-4 border-t border-slate-100 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-indigo-600" />
+                  <Clock className="w-4 h-4 text-indigo-600 shrink-0" />
                   <span className="text-xs font-bold text-slate-800 uppercase tracking-wider font-mono">
                     Phân Bố Click Theo Khung Giờ 24H
                   </span>
                 </div>
-                <div className="flex items-center gap-3 text-[11px]">
+                <div className="flex items-center gap-3 text-[10px] self-end sm:self-auto">
                   <div className="flex items-center gap-1">
                     <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
                     <span className="text-slate-600 font-medium">Người dùng thực</span>
@@ -544,21 +639,27 @@ export const ClickAnalyticsCard: React.FC<ClickAnalyticsCardProps> = ({ isAdmin 
                 </div>
               </div>
 
-              <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-100">
-                <div className="flex items-end justify-between gap-1 h-28 pt-4 pb-1">
+              <div className="text-[10px] text-slate-400 sm:hidden flex items-center justify-between font-mono">
+                <span>← Vuốt ngang để xem 24h →</span>
+                <span>Chạm cột để xem số liệu</span>
+              </div>
+
+              <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-100 overflow-x-auto">
+                <div className="flex items-end justify-between gap-1.5 h-32 pt-6 pb-1 min-w-[580px] sm:min-w-0">
                   {data.hourly_trend.map((item) => {
                     const totalBar = item.human + item.bot;
                     const maxTotal = Math.max(...data.hourly_trend.map(t => t.human + t.bot), 1);
                     const heightPercent = Math.round((totalBar / maxTotal) * 100);
                     
                     return (
-                      <div key={item.hour} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group relative">
-                        {/* Tooltip on hover */}
-                        <div className="opacity-0 group-hover:opacity-100 pointer-events-none absolute -top-8 bg-slate-900 text-white text-[10px] px-2 py-0.5 rounded shadow-md z-10 whitespace-nowrap transition-opacity">
-                          {item.hour}: {item.human} human, {item.bot} bot
+                      <div key={item.hour} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group relative cursor-pointer">
+                        {/* Tooltip on hover / touch */}
+                        <div className="opacity-0 group-hover:opacity-100 pointer-events-none absolute -top-9 bg-slate-900/90 text-white text-[10px] px-2 py-1 rounded shadow-lg z-20 whitespace-nowrap transition-opacity flex flex-col items-center">
+                          <span className="font-bold text-indigo-300">{item.hour}:00</span>
+                          <span>{item.human} human, {item.bot} bot</span>
                         </div>
 
-                        <div className="w-full max-w-[20px] bg-slate-200 rounded-t overflow-hidden flex flex-col justify-end" style={{ height: `${Math.max(heightPercent, 5)}%` }}>
+                        <div className="w-full max-w-[20px] bg-slate-200/80 rounded-t overflow-hidden flex flex-col justify-end shadow-2xs" style={{ height: `${Math.max(heightPercent, 6)}%` }}>
                           {item.bot > 0 && (
                             <div className="bg-amber-400 w-full transition-all" style={{ height: `${(item.bot / Math.max(totalBar, 1)) * 100}%` }} />
                           )}
@@ -566,7 +667,7 @@ export const ClickAnalyticsCard: React.FC<ClickAnalyticsCardProps> = ({ isAdmin 
                             <div className="bg-indigo-500 w-full transition-all" style={{ height: `${(item.human / Math.max(totalBar, 1)) * 100}%` }} />
                           )}
                         </div>
-                        <span className="text-[9px] text-slate-400 font-mono">{item.hour}</span>
+                        <span className="text-[9px] text-slate-500 font-mono font-medium">{item.hour}h</span>
                       </div>
                     );
                   })}

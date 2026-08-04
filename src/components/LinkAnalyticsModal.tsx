@@ -316,10 +316,10 @@ export const LinkAnalyticsModal: React.FC<LinkAnalyticsModalProps> = ({
 
                   {/* Hourly Graph */}
                   {data.hourly_trend && data.hourly_trend.length > 0 && (
-                    <div className="p-4 bg-slate-50/70 rounded-xl border border-slate-100 space-y-3">
-                      <div className="flex items-center justify-between">
+                    <div className="p-3.5 sm:p-4 bg-slate-50/70 rounded-xl border border-slate-100 space-y-2.5">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                          <Clock className="w-4 h-4 text-indigo-600" />
+                          <Clock className="w-4 h-4 text-indigo-600 shrink-0" />
                           <span>Biểu Đồ Click Theo Khung Giờ 24H</span>
                         </div>
                         <div className="flex items-center gap-3 text-[10px]">
@@ -332,29 +332,37 @@ export const LinkAnalyticsModal: React.FC<LinkAnalyticsModalProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex items-end justify-between gap-1 h-28 pt-4 pb-1">
-                        {data.hourly_trend.map((item) => {
-                          const totalBar = item.human + item.bot;
-                          const maxTotal = Math.max(...data.hourly_trend.map(t => t.human + t.bot), 1);
-                          const heightPercent = Math.round((totalBar / maxTotal) * 100);
+                      <div className="text-[10px] text-slate-400 sm:hidden flex items-center justify-between font-mono">
+                        <span>← Vuốt ngang để xem 24h →</span>
+                        <span>Chạm cột để xem số liệu</span>
+                      </div>
 
-                          return (
-                            <div key={item.hour} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group relative">
-                              <div className="opacity-0 group-hover:opacity-100 pointer-events-none absolute -top-8 bg-slate-900 text-white text-[10px] px-2 py-0.5 rounded shadow-md z-10 whitespace-nowrap transition-opacity">
-                                {item.hour}: {item.human} human, {item.bot} bot
+                      <div className="overflow-x-auto">
+                        <div className="flex items-end justify-between gap-1.5 h-32 pt-6 pb-1 min-w-[560px] sm:min-w-0">
+                          {data.hourly_trend.map((item) => {
+                            const totalBar = item.human + item.bot;
+                            const maxTotal = Math.max(...data.hourly_trend.map(t => t.human + t.bot), 1);
+                            const heightPercent = Math.round((totalBar / maxTotal) * 100);
+
+                            return (
+                              <div key={item.hour} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group relative cursor-pointer">
+                                <div className="opacity-0 group-hover:opacity-100 pointer-events-none absolute -top-9 bg-slate-900/90 text-white text-[10px] px-2 py-1 rounded shadow-lg z-20 whitespace-nowrap transition-opacity flex flex-col items-center">
+                                  <span className="font-bold text-indigo-300">{item.hour}:00</span>
+                                  <span>{item.human} human, {item.bot} bot</span>
+                                </div>
+                                <div className="w-full max-w-[18px] bg-slate-200/80 rounded-t overflow-hidden flex flex-col justify-end shadow-2xs" style={{ height: `${Math.max(heightPercent, 6)}%` }}>
+                                  {item.bot > 0 && (
+                                    <div className="bg-amber-400 w-full" style={{ height: `${(item.bot / Math.max(totalBar, 1)) * 100}%` }} />
+                                  )}
+                                  {item.human > 0 && (
+                                    <div className="bg-indigo-500 w-full" style={{ height: `${(item.human / Math.max(totalBar, 1)) * 100}%` }} />
+                                  )}
+                                </div>
+                                <span className="text-[9px] text-slate-500 font-mono font-medium">{item.hour}h</span>
                               </div>
-                              <div className="w-full max-w-[18px] bg-slate-200 rounded-t overflow-hidden flex flex-col justify-end" style={{ height: `${Math.max(heightPercent, 5)}%` }}>
-                                {item.bot > 0 && (
-                                  <div className="bg-amber-400 w-full" style={{ height: `${(item.bot / Math.max(totalBar, 1)) * 100}%` }} />
-                                )}
-                                {item.human > 0 && (
-                                  <div className="bg-indigo-500 w-full" style={{ height: `${(item.human / Math.max(totalBar, 1)) * 100}%` }} />
-                                )}
-                              </div>
-                              <span className="text-[9px] text-slate-400 font-mono">{item.hour}</span>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -471,7 +479,10 @@ export const LinkAnalyticsModal: React.FC<LinkAnalyticsModalProps> = ({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
                     <span>Lịch sử 30 lượt click mới nhất:</span>
-                    <span>Tự động cập nhật</span>
+                    <span className="text-emerald-600 font-bold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Thời gian thực
+                    </span>
                   </div>
 
                   {!data.recent_visits || data.recent_visits.length === 0 ? (
@@ -479,54 +490,99 @@ export const LinkAnalyticsModal: React.FC<LinkAnalyticsModalProps> = ({
                       Chưa ghi nhận lượt click nào cho link này.
                     </div>
                   ) : (
-                    <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs text-slate-700">
-                          <thead className="bg-slate-50 border-b border-slate-200 font-bold text-slate-600 uppercase tracking-wider text-[10px]">
-                            <tr>
-                              <th className="px-3 py-2.5">Thời gian</th>
-                              <th className="px-3 py-2.5">Đối tượng</th>
-                              <th className="px-3 py-2.5">Vị trí</th>
-                              <th className="px-3 py-2.5">Thiết bị / App</th>
-                              <th className="px-3 py-2.5">Nguồn (Referrer)</th>
-                              <th className="px-3 py-2.5">IP</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
-                            {data.recent_visits.map((log) => (
-                              <tr key={log.id} className="hover:bg-slate-50/80 transition">
-                                <td className="px-3 py-2 whitespace-nowrap text-slate-500">
-                                  {new Date(log.created_at).toLocaleString('vi-VN')}
-                                </td>
-                                <td className="px-3 py-2 whitespace-nowrap">
-                                  {log.is_bot ? (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold font-sans">
-                                      <Bot className="w-3 h-3" /> Bot
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold font-sans">
-                                      <CheckCircle2 className="w-3 h-3" /> Người dùng
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="px-3 py-2 font-sans font-semibold text-slate-800 whitespace-nowrap">
-                                  {log.country || 'TP. Hồ Chí Minh'}
-                                </td>
-                                <td className="px-3 py-2 font-sans text-slate-700 whitespace-nowrap">
-                                  {log.device} ({log.browser})
-                                </td>
-                                <td className="px-3 py-2 font-sans text-slate-600 whitespace-nowrap max-w-[150px] truncate">
-                                  {log.referer || 'Direct'}
-                                </td>
-                                <td className="px-3 py-2 text-slate-400 whitespace-nowrap">
-                                  {log.ip}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                    <>
+                      {/* Mobile Cards View (< sm) */}
+                      <div className="block sm:hidden space-y-2.5">
+                        {data.recent_visits.map((log) => (
+                          <div key={log.id} className="p-3 bg-white border border-slate-200 rounded-xl space-y-2 shadow-2xs">
+                            <div className="flex items-center justify-between text-xs pb-1.5 border-b border-slate-100">
+                              <span className="text-slate-400 font-mono text-[10px] flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-slate-400" />
+                                {new Date(log.created_at).toLocaleString('vi-VN')}
+                              </span>
+                              {log.is_bot ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
+                                  <Bot className="w-3 h-3" /> Bot Preview
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                                  <CheckCircle2 className="w-3 h-3" /> Người dùng
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center justify-between text-xs pt-0.5">
+                              <div className="flex items-center gap-1.5 font-medium text-slate-800">
+                                <MapPin className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                                <span>{log.country || 'TP. Hồ Chí Minh'}</span>
+                              </div>
+                              <span className="text-[10px] font-mono text-slate-400">IP: {log.ip}</span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 pt-1 text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                              <div>
+                                <span className="text-slate-400 text-[9px] uppercase tracking-wider block">Thiết bị / App</span>
+                                <span className="font-semibold text-slate-800 truncate block">{log.device} ({log.browser})</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 text-[9px] uppercase tracking-wider block">Nguồn Referrer</span>
+                                <span className="font-semibold text-slate-800 truncate block">{log.referer || 'Trực tiếp / Direct'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
+
+                      {/* Desktop Table View (>= sm) */}
+                      <div className="hidden sm:block border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs text-slate-700">
+                            <thead className="bg-slate-50 border-b border-slate-200 font-bold text-slate-600 uppercase tracking-wider text-[10px]">
+                              <tr>
+                                <th className="px-3 py-2.5">Thời gian</th>
+                                <th className="px-3 py-2.5">Đối tượng</th>
+                                <th className="px-3 py-2.5">Vị trí</th>
+                                <th className="px-3 py-2.5">Thiết bị / App</th>
+                                <th className="px-3 py-2.5">Nguồn (Referrer)</th>
+                                <th className="px-3 py-2.5">IP</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                              {data.recent_visits.map((log) => (
+                                <tr key={log.id} className="hover:bg-slate-50/80 transition">
+                                  <td className="px-3 py-2 whitespace-nowrap text-slate-500">
+                                    {new Date(log.created_at).toLocaleString('vi-VN')}
+                                  </td>
+                                  <td className="px-3 py-2 whitespace-nowrap">
+                                    {log.is_bot ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold font-sans">
+                                        <Bot className="w-3 h-3" /> Bot
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold font-sans">
+                                        <CheckCircle2 className="w-3 h-3" /> Người dùng
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2 font-sans font-semibold text-slate-800 whitespace-nowrap">
+                                    {log.country || 'TP. Hồ Chí Minh'}
+                                  </td>
+                                  <td className="px-3 py-2 font-sans text-slate-700 whitespace-nowrap">
+                                    {log.device} ({log.browser})
+                                  </td>
+                                  <td className="px-3 py-2 font-sans text-slate-600 whitespace-nowrap max-w-[150px] truncate">
+                                    {log.referer || 'Direct'}
+                                  </td>
+                                  <td className="px-3 py-2 text-slate-400 whitespace-nowrap">
+                                    {log.ip}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               )}
