@@ -60,7 +60,8 @@ const DEFAULT_SETTINGS: SiteSettings = {
   default_expiration_days: 0,
   allow_unlimited_expiration: true,
   max_expiration_days: 0,
-  private_mode_enable: false
+  private_mode_enable: false,
+  custom_login_path: '/login'
 };
 
 const SEED_DATA: DatabaseSchema = {

@@ -1183,6 +1183,21 @@ app.get('/api/admin/settings', requireAdmin, (req: Request, res: Response) => {
 });
 
 app.put('/api/admin/settings', requireAdmin, (req: Request, res: Response) => {
+  if (req.body.custom_login_path !== undefined) {
+    let rawPath = String(req.body.custom_login_path || '/login').trim();
+    if (!rawPath.startsWith('/')) {
+      rawPath = '/' + rawPath;
+    }
+    if (rawPath.length > 1 && rawPath.endsWith('/')) {
+      rawPath = rawPath.replace(/\/+$/, '');
+    }
+    rawPath = rawPath.toLowerCase().replace(/[^a-z0-9/_-]/g, '');
+    if (!rawPath || rawPath === '/') {
+      rawPath = '/login';
+    }
+    req.body.custom_login_path = rawPath;
+  }
+
   const settings = db.updateSettings(req.body);
   db.addLog((req as any).user.id, 'UPDATE_SETTINGS', `Cập nhật cấu hình hệ thống`, req.ip || '127.0.0.1');
   return res.json({ settings });
@@ -1356,7 +1371,8 @@ app.get('/api/public/config', (req: Request, res: Response) => {
     default_expiration_days,
     allow_unlimited_expiration,
     max_expiration_days,
-    private_mode_enable: settings.private_mode_enable ?? false
+    private_mode_enable: settings.private_mode_enable ?? false,
+    custom_login_path: settings.custom_login_path || '/login'
   });
 });
 
@@ -1392,7 +1408,8 @@ app.get('/api/public-settings', (req: Request, res: Response) => {
     default_expiration_days,
     allow_unlimited_expiration,
     max_expiration_days,
-    private_mode_enable: settings.private_mode_enable ?? false
+    private_mode_enable: settings.private_mode_enable ?? false,
+    custom_login_path: settings.custom_login_path || '/login'
   });
 });
 
@@ -1401,6 +1418,8 @@ app.get('/api/public-settings', (req: Request, res: Response) => {
 // -------------------------------------------------------------
 app.get('/:slug', (req: Request, res: Response, next: NextFunction) => {
   const slug = req.params.slug;
+  const settings = db.getSettings();
+  const customLoginSlug = (settings.custom_login_path || '/login').replace(/^\//, '').toLowerCase();
 
   // System route bypass list
   const reservedPrefixes = [
@@ -1416,7 +1435,8 @@ app.get('/:slug', (req: Request, res: Response, next: NextFunction) => {
     'favicon.ico',
     'robots.txt',
     'index.html',
-    'node_modules'
+    'node_modules',
+    customLoginSlug
   ];
 
   if (reservedPrefixes.includes(slug.toLowerCase()) || slug.includes('.')) {
@@ -1461,7 +1481,6 @@ app.get('/:slug', (req: Request, res: Response, next: NextFunction) => {
 
   const userAgent = req.headers['user-agent'] || '';
   const botCheck = BotDetector.isBot(userAgent);
-  const settings = db.getSettings();
   const siteDomain = getRequestSiteDomain(req);
   const fullUrl = `${siteDomain}/${link.slug}`;
 

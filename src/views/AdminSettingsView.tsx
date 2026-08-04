@@ -615,7 +615,7 @@ export const AdminSettingsView: React.FC = () => {
               Khi kích hoạt <strong>Chế Độ Private Website</strong>:
             </p>
             <ul className="list-disc pl-5 space-y-1 text-slate-700">
-              <li><strong>Chặn truy cập trực tiếp:</strong> Người dùng vãng lai truy cập trang chủ <code>/</code> hoặc trang đăng ký <code>/register</code> sẽ bị chặn và tự động chuyển hướng về trang đăng nhập <code>/login</code>.</li>
+              <li><strong>Chặn truy cập trực tiếp:</strong> Người dùng vãng lai truy cập trang chủ <code>/</code> hoặc trang đăng ký <code>/register</code> sẽ bị chặn và tự động chuyển hướng về trang đăng nhập <code>{settings.custom_login_path || '/login'}</code>.</li>
               <li><strong>Điều hướng quản lý:</strong> Sau khi đăng nhập thành công, hệ thống chuyển hướng thẳng người dùng tới trang quản lý tại <code>/manager</code>.</li>
               <li><strong>Link rút gọn <code>/[slug]</code> vẫn hoạt động 100%:</strong> Bất kể khi người dùng nhấp vào link hay Bot mạng xã hội (Facebook, Telegram, Zalo...) truy cập cào ảnh OpenGraph, liên kết vẫn hoạt động hoàn toàn bình thường.</li>
             </ul>
@@ -642,10 +642,51 @@ export const AdminSettingsView: React.FC = () => {
                 )}
               </span>
               <span className="text-xs text-slate-500 block mt-0.5">
-                Chỉ cho phép đăng nhập tại <code>/login</code> và làm việc tại trang quản lý <code>/manager</code>. Ẩn toàn bộ trang công khai đối với người lạ.
+                Chỉ cho phép đăng nhập tại <code>{settings.custom_login_path || '/login'}</code> và làm việc tại trang quản lý <code>/manager</code>. Ẩn toàn bộ trang công khai đối với người lạ.
               </span>
             </div>
           </label>
+
+          {/* Custom Login Path Configuration */}
+          <div className="pt-3 border-t border-slate-100 space-y-2">
+            <label className="block text-xs font-bold text-slate-800 flex items-center justify-between flex-wrap gap-1">
+              <span className="flex items-center gap-2">
+                <Key className="w-4 h-4 text-indigo-600" />
+                Đường Dẫn Đăng Nhập Tùy Chỉnh (Custom Login Path)
+              </span>
+              <button
+                type="button"
+                onClick={() => setSettings({ ...settings, custom_login_path: '/login' })}
+                className="text-[11px] text-indigo-600 hover:text-indigo-800 hover:underline font-normal flex items-center gap-1 cursor-pointer"
+              >
+                <RefreshCw className="w-3 h-3" /> Mặc định (/login)
+              </button>
+            </label>
+            <div className="space-y-1.5">
+              <input
+                type="text"
+                value={settings.custom_login_path || '/login'}
+                onChange={(e) => {
+                  let val = e.target.value.trim();
+                  if (!val.startsWith('/')) val = '/' + val;
+                  setSettings({ ...settings, custom_login_path: val });
+                }}
+                placeholder="/login hoặc /portal-access"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
+              />
+            </div>
+            <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl text-[11px] text-indigo-950 space-y-1">
+              <p className="font-semibold text-indigo-900">
+                📌 Bảo mật ẩn địa chỉ đăng nhập:
+              </p>
+              <p className="text-slate-700">
+                • Đường dẫn hiện tại: <code className="bg-white px-1.5 py-0.5 rounded border border-indigo-200 font-bold text-indigo-700 font-mono">{settings.custom_login_path || '/login'}</code>
+              </p>
+              <p className="text-slate-500">
+                • Ví dụ tùy chỉnh: <code>/portal-access</code>, <code>/quantri-login</code>, <code>/auth-key</code>
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Section: Link Expiration Rules */}

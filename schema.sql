@@ -1,18 +1,19 @@
--- ============================================================================
--- Smart Link OpenGraph (SLS) - Schema MySQL & Dữ Liệu Mẫu
--- Tương thích với MySQL 5.7+, MySQL 8.0+, MariaDB 10.3+ & phpMyAdmin (Shared Hosting, cPanel, DirectAdmin)
--- HƯỚNG DẪN: 
--- 1. Mở phpMyAdmin và chọn đúng Database của bạn (ví dụ: u202109230_xxxxx)
--- 2. Chọn tab "Nhập" (Import) chọn file schema.sql này, hoặc mở tab "SQL" và dán toàn bộ nội dung này vào để chạy.
--- ============================================================================
+-- ========================================================
+-- Smart Link OG - MySQL Database Schema & Initial Seed Data
+-- Database Engine: InnoDB
+-- Character Set: utf8mb4 (utf8mb4_unicode_ci)
+-- Full Compatibility: MySQL 5.7+, MySQL 8.0+, MariaDB 10.3+
+-- ========================================================
 
 SET FOREIGN_KEY_CHECKS = 0;
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+SET NAMES utf8mb4;
 
--- ----------------------------------------------------------------------------
--- 1. Bảng `users` (Quản lý tài khoản người dùng & Admin)
--- ----------------------------------------------------------------------------
+-- --------------------------------------------------------
+-- Table structure for table `users`
+-- --------------------------------------------------------
+
 DROP TABLE IF EXISTS `users`;
-
 CREATE TABLE `users` (
   `id` VARCHAR(50) NOT NULL,
   `username` VARCHAR(100) NOT NULL,
@@ -32,11 +33,19 @@ CREATE TABLE `users` (
   UNIQUE KEY `idx_email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ----------------------------------------------------------------------------
--- 2. Bảng `links` (Quản lý rút gọn Link & OpenGraph Meta)
--- ----------------------------------------------------------------------------
-DROP TABLE IF EXISTS `links`;
+-- --------------------------------------------------------
+-- Dumping initial seed data for table `users`
+-- --------------------------------------------------------
 
+INSERT INTO `users` (`id`, `username`, `email`, `password`, `role`, `status`, `daily_limit`, `must_change_password`, `default_expiration_days`, `allow_unlimited_expiration`, `max_expiration_days`, `created_at`, `updated_at`) VALUES
+('usr_admin', 'admin', 'admin@vnastar.com', 'admin', 'admin', 'active', 9999, 1, 0, 1, 0, NOW(), NOW()),
+('usr_demo', 'user', 'user@vnastar.com', 'user123', 'user', 'active', 3, 0, 0, 1, 0, NOW(), NOW());
+
+-- --------------------------------------------------------
+-- Table structure for table `links`
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `links`;
 CREATE TABLE `links` (
   `id` VARCHAR(50) NOT NULL,
   `user_id` VARCHAR(50) NOT NULL,
@@ -58,15 +67,22 @@ CREATE TABLE `links` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_slug` (`slug`),
   KEY `idx_user_id` (`user_id`),
-  KEY `idx_status` (`status`),
-  CONSTRAINT `fk_links_users` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+  KEY `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ----------------------------------------------------------------------------
--- 3. Bảng `settings` (Cấu hình hệ thống)
--- ----------------------------------------------------------------------------
-DROP TABLE IF EXISTS `settings`;
+-- --------------------------------------------------------
+-- Dumping initial seed data for table `links`
+-- --------------------------------------------------------
 
+INSERT INTO `links` (`id`, `user_id`, `user_name`, `slug`, `destination_url`, `title`, `description`, `image`, `og_url`, `og_type`, `og_site_name`, `clicks`, `status`, `redirect_code`, `expires_at`, `created_at`, `updated_at`) VALUES
+('lnk_video01', 'usr_admin', 'admin', 'video01', 'https://youtube.com/watch?v=dQw4w9WgXcQ', 'Hướng dẫn Rút gọn Link Smart OG chuyên nghiệp', 'Công cụ rút gọn link thông minh hiển thị ảnh OpenGraph trên Facebook, Zalo, Telegram cực chuẩn.', 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80', '', 'website', '', 42, 'active', 302, NULL, NOW(), NOW()),
+('lnk_demo02', 'usr_demo', 'user', 'P8Hsj9', 'https://vnexpress.net', 'Trang tin tức tổng hợp VnExpress', 'Cập nhật tin tức mới nhất trong ngày tại Việt Nam và thế giới.', 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80', '', 'website', '', 15, 'active', 302, NULL, NOW(), NOW());
+
+-- --------------------------------------------------------
+-- Table structure for table `settings`
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `settings`;
 CREATE TABLE `settings` (
   `id` VARCHAR(50) NOT NULL DEFAULT 'default',
   `site_name` VARCHAR(150) NOT NULL DEFAULT 'Smart Link OG',
@@ -81,17 +97,31 @@ CREATE TABLE `settings` (
   `cloudflare_turnstile_enable` TINYINT(1) NOT NULL DEFAULT 0,
   `cloudflare_site_key` VARCHAR(255) DEFAULT '',
   `cloudflare_secret_key` VARCHAR(255) DEFAULT '',
+  `recaptcha_enable` TINYINT(1) NOT NULL DEFAULT 0,
+  `recaptcha_site_key` VARCHAR(255) DEFAULT '',
+  `recaptcha_secret_key` VARCHAR(255) DEFAULT '',
+  `recaptcha_version` VARCHAR(50) DEFAULT 'v2_checkbox',
+  `captcha_provider` VARCHAR(50) DEFAULT 'recaptcha',
   `default_expiration_days` INT DEFAULT 0,
   `allow_unlimited_expiration` TINYINT(1) DEFAULT 1,
   `max_expiration_days` INT DEFAULT 0,
+  `private_mode_enable` TINYINT(1) DEFAULT 0,
+  `custom_login_path` VARCHAR(255) DEFAULT '/login',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ----------------------------------------------------------------------------
--- 4. Bảng `visits` (Lịch sử Lượt Click & Crawler Bot)
--- ----------------------------------------------------------------------------
-DROP TABLE IF EXISTS `visits`;
+-- --------------------------------------------------------
+-- Dumping initial seed data for table `settings`
+-- --------------------------------------------------------
 
+INSERT INTO `settings` (`id`, `site_name`, `site_domain`, `default_limit`, `register_enable`, `upload_enable`, `default_redirect`, `logo`, `favicon`, `bot_list`, `cloudflare_turnstile_enable`, `cloudflare_site_key`, `cloudflare_secret_key`, `recaptcha_enable`, `recaptcha_site_key`, `recaptcha_secret_key`, `recaptcha_version`, `captcha_provider`, `default_expiration_days`, `allow_unlimited_expiration`, `max_expiration_days`, `private_mode_enable`, `custom_login_path`) VALUES
+('default', 'Smart Link OG', '', 3, 1, 1, '302', '', '', 'facebookexternalhit, facebot, twitterbot, discordbot, telegrambot, linkedinbot, slackbot, whatsapp, pinterest, googleinspectiontool, bingbot, googlebot, applebot, yandex, duckduckbot, baiduspider, skypeuripreview, vkshare, outbrain, zalo, viber', 0, '', '', 0, '', '', 'v2_checkbox', 'recaptcha', 0, 1, 0, 0, '/login');
+
+-- --------------------------------------------------------
+-- Table structure for table `visits`
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `visits`;
 CREATE TABLE `visits` (
   `id` VARCHAR(50) NOT NULL,
   `link_id` VARCHAR(50) NOT NULL,
@@ -110,11 +140,11 @@ CREATE TABLE `visits` (
   KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ----------------------------------------------------------------------------
--- 5. Bảng `logs` (Nhật ký thao tác Audit Log)
--- ----------------------------------------------------------------------------
-DROP TABLE IF EXISTS `logs`;
+-- --------------------------------------------------------
+-- Table structure for table `logs`
+-- --------------------------------------------------------
 
+DROP TABLE IF EXISTS `logs`;
 CREATE TABLE `logs` (
   `id` VARCHAR(50) NOT NULL,
   `user_id` VARCHAR(50) NOT NULL,
@@ -127,47 +157,5 @@ CREATE TABLE `logs` (
   KEY `idx_user_id` (`user_id`),
   KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ----------------------------------------------------------------------------
--- 6. Bảng `analytics` (Thống kê lưu lượng tổng hợp theo ngày)
--- ----------------------------------------------------------------------------
-DROP TABLE IF EXISTS `analytics`;
-
-CREATE TABLE `analytics` (
-  `id` INT NOT NULL AUTO_INCREMENT,
-  `date` DATE NOT NULL,
-  `clicks` INT NOT NULL DEFAULT 0,
-  `bot_views` INT NOT NULL DEFAULT 0,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `idx_date` (`date`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
--- ============================================================================
--- DỮ LIỆU KHỞI TẠO BAN ĐẦU (SEED DATA)
--- ============================================================================
-
--- 1. Tài khoản mặc định:
--- Admin: username 'admin' | mật khẩu mặc định 'admin'
--- User:  username 'user'  | mật khẩu mặc định 'user123'
-INSERT INTO `users` (`id`, `username`, `email`, `password`, `role`, `status`, `daily_limit`, `must_change_password`, `created_at`) VALUES
-('usr_admin', 'admin', 'admin@vnastar.com', 'admin', 'admin', 'active', 9999, 1, '2026-01-01 00:00:00'),
-('usr_demo', 'user', 'user@vnastar.com', 'user123', 'user', 'active', 3, 0, '2026-01-01 00:00:00');
-
--- 2. Cấu hình hệ thống mặc định:
-INSERT INTO `settings` (`id`, `site_name`, `site_domain`, `default_limit`, `register_enable`, `upload_enable`, `default_redirect`, `logo`, `favicon`, `bot_list`, `cloudflare_turnstile_enable`, `cloudflare_site_key`, `cloudflare_secret_key`, `default_expiration_days`, `allow_unlimited_expiration`, `max_expiration_days`) VALUES
-('default', 'Smart Link OG', '', 3, 1, 1, '302', '', '', 'facebookexternalhit, facebot, twitterbot, discordbot, telegrambot, linkedinbot, slackbot, whatsapp, pinterest, googleinspectiontool, bingbot, googlebot, applebot, yandex, duckduckbot, baiduspider, skypeuripreview, vkshare, outbrain, zalo, viber', 0, '', '', 0, 1, 0);
-
--- 3. Mẫu Link rút gọn ban đầu:
-INSERT INTO `links` (`id`, `user_id`, `user_name`, `slug`, `destination_url`, `title`, `description`, `image`, `clicks`, `status`, `redirect_code`, `created_at`) VALUES
-('lnk_video01', 'usr_admin', 'admin', 'video01', 'https://youtube.com/watch?v=dQw4w9WgXcQ', 'Hướng dẫn Rút gọn Link Smart OG chuyên nghiệp', 'Công cụ rút gọn link thông minh hiển thị ảnh OpenGraph trên Facebook, Zalo, Telegram cực chuẩn.', 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80', 42, 'active', 302, '2026-01-02 10:00:00'),
-('lnk_demo02', 'usr_demo', 'user', 'P8Hsj9', 'https://vnexpress.net', 'Trang tin tức tổng hợp', 'Mẫu link trải nghiệm rút gọn dành cho thành viên', 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80', 18, 'active', 302, '2026-01-03 14:00:00');
-
--- 4. Nhật ký nhật ký lượt truy cập mẫu:
-INSERT INTO `visits` (`id`, `link_id`, `slug`, `ip`, `country`, `referer`, `browser`, `device`, `is_bot`, `created_at`) VALUES
-('vst_01', 'lnk_video01', 'video01', '113.190.1.20', 'Hà Nội', 'https://facebook.com', 'Facebook App', 'Mobile', 0, NOW() - INTERVAL 2 HOUR),
-('vst_02', 'lnk_video01', 'video01', '14.161.22.45', 'TP. Hồ Chí Minh', 'Direct', 'Google Chrome', 'Mobile', 0, NOW() - INTERVAL 3 HOUR),
-('vst_03', 'lnk_video01', 'video01', '113.160.10.5', 'TP. Hồ Chí Minh', 'https://zalo.me', 'Zalo App', 'Mobile', 0, NOW() - INTERVAL 4 HOUR),
-('vst_04', 'lnk_video01', 'video01', '113.190.88.1', 'Hà Nội', 'https://facebook.com', 'Facebook externalhit/1.1', 'Bot', 1, NOW() - INTERVAL 5 HOUR);
 
 SET FOREIGN_KEY_CHECKS = 1;

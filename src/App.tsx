@@ -43,10 +43,12 @@ export default function App() {
     site_name: string;
     site_domain: string;
     private_mode_enable?: boolean;
+    custom_login_path?: string;
   }>({
     site_name: 'Smart Link OG',
     site_domain: typeof window !== 'undefined' ? window.location.origin : '',
-    private_mode_enable: false
+    private_mode_enable: false,
+    custom_login_path: '/login'
   });
 
   // Modal states
@@ -72,10 +74,12 @@ export default function App() {
   useEffect(() => {
     api.getPublicConfig()
       .then(cfg => {
+        const loginPath = cfg.custom_login_path || '/login';
         setSiteConfig({
           site_name: cfg.site_name || 'Smart Link OG',
           site_domain: cfg.site_domain || (typeof window !== 'undefined' ? window.location.origin : ''),
-          private_mode_enable: Boolean(cfg.private_mode_enable)
+          private_mode_enable: Boolean(cfg.private_mode_enable),
+          custom_login_path: loginPath
         });
       })
       .catch(console.error);
@@ -87,19 +91,19 @@ export default function App() {
           setUser(u);
           if (u.must_change_password) {
             setCurrentPath('/dashboard/password');
-          } else if (currentPath === '/login' || currentPath === '/register' || currentPath === '/') {
+          } else if (currentPath === '/login' || currentPath === siteConfig.custom_login_path || currentPath === '/register' || currentPath === '/') {
             setCurrentPath('/manager');
           }
         })
         .catch(() => {
           api.clearToken();
           setUser(null);
-          setCurrentPath('/login');
+          setCurrentPath(siteConfig.custom_login_path || '/login');
         })
         .finally(() => setLoadingUser(false));
     } else {
       setLoadingUser(false);
-      setCurrentPath('/login');
+      setCurrentPath(siteConfig.custom_login_path || '/login');
     }
   }, []);
 
@@ -118,10 +122,11 @@ export default function App() {
   const handleLogout = () => {
     api.logout();
     setUser(null);
+    const loginPath = siteConfig.custom_login_path || '/login';
     if (typeof window !== 'undefined' && window.history.pushState) {
-      window.history.pushState({}, '', '/login');
+      window.history.pushState({}, '', loginPath);
     }
-    setCurrentPath('/login');
+    setCurrentPath(loginPath);
   };
 
   const handleNavigate = (path: string) => {
@@ -197,7 +202,7 @@ export default function App() {
               <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0" />
               <div>
                 <span className="font-bold block text-amber-800">Website đang ở Chế độ Riêng tư (Private Mode)</span>
-                <span>Truy cập trực tiếp bị hạn chế. Vui lòng đăng nhập tại <code className="font-mono bg-amber-100 px-1 py-0.5 rounded">/login</code> để tới trang quản lý <code className="font-mono bg-amber-100 px-1 py-0.5 rounded">/manager</code>.</span>
+                <span>Truy cập trực tiếp bị hạn chế. Vui lòng đăng nhập tại <code className="font-mono bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">{siteConfig.custom_login_path || '/login'}</code> để tới trang quản lý <code className="font-mono bg-amber-100 px-1 py-0.5 rounded">/manager</code>.</span>
               </div>
             </div>
           </div>

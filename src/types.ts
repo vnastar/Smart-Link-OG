@@ -58,6 +58,7 @@ export interface SiteSettings {
   allow_unlimited_expiration?: boolean;
   max_expiration_days?: number;
   private_mode_enable?: boolean;
+  custom_login_path?: string;
 }
 
 export interface VisitLog {

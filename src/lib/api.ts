@@ -133,6 +133,7 @@ export const api = {
     allow_unlimited_expiration?: boolean;
     max_expiration_days?: number;
     private_mode_enable?: boolean;
+    custom_login_path?: string;
   }> {
     try {
       return await this.request('/api/public/config');

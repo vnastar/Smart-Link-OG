@@ -168,9 +168,16 @@ export class MySQLService {
           \`cloudflare_turnstile_enable\` TINYINT(1) NOT NULL DEFAULT 0,
           \`cloudflare_site_key\` VARCHAR(255) DEFAULT '',
           \`cloudflare_secret_key\` VARCHAR(255) DEFAULT '',
+          \`recaptcha_enable\` TINYINT(1) NOT NULL DEFAULT 0,
+          \`recaptcha_site_key\` VARCHAR(255) DEFAULT '',
+          \`recaptcha_secret_key\` VARCHAR(255) DEFAULT '',
+          \`recaptcha_version\` VARCHAR(50) DEFAULT 'v2_checkbox',
+          \`captcha_provider\` VARCHAR(50) DEFAULT 'recaptcha',
           \`default_expiration_days\` INT DEFAULT 0,
           \`allow_unlimited_expiration\` TINYINT(1) DEFAULT 1,
           \`max_expiration_days\` INT DEFAULT 0,
+          \`private_mode_enable\` TINYINT(1) DEFAULT 0,
+          \`custom_login_path\` VARCHAR(255) DEFAULT '/login',
           PRIMARY KEY (\`id\`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
@@ -179,9 +186,16 @@ export class MySQLService {
       await this.ensureColumnExists(conn, 'settings', 'cloudflare_turnstile_enable', 'TINYINT(1) NOT NULL DEFAULT 0');
       await this.ensureColumnExists(conn, 'settings', 'cloudflare_site_key', "VARCHAR(255) DEFAULT ''");
       await this.ensureColumnExists(conn, 'settings', 'cloudflare_secret_key', "VARCHAR(255) DEFAULT ''");
+      await this.ensureColumnExists(conn, 'settings', 'recaptcha_enable', 'TINYINT(1) NOT NULL DEFAULT 0');
+      await this.ensureColumnExists(conn, 'settings', 'recaptcha_site_key', "VARCHAR(255) DEFAULT ''");
+      await this.ensureColumnExists(conn, 'settings', 'recaptcha_secret_key', "VARCHAR(255) DEFAULT ''");
+      await this.ensureColumnExists(conn, 'settings', 'recaptcha_version', "VARCHAR(50) DEFAULT 'v2_checkbox'");
+      await this.ensureColumnExists(conn, 'settings', 'captcha_provider', "VARCHAR(50) DEFAULT 'recaptcha'");
       await this.ensureColumnExists(conn, 'settings', 'default_expiration_days', 'INT DEFAULT 0');
       await this.ensureColumnExists(conn, 'settings', 'allow_unlimited_expiration', 'TINYINT(1) DEFAULT 1');
       await this.ensureColumnExists(conn, 'settings', 'max_expiration_days', 'INT DEFAULT 0');
+      await this.ensureColumnExists(conn, 'settings', 'private_mode_enable', 'TINYINT(1) DEFAULT 0');
+      await this.ensureColumnExists(conn, 'settings', 'custom_login_path', "VARCHAR(255) DEFAULT '/login'");
 
       // Create visits table
       await conn.query(`
@@ -425,9 +439,16 @@ export class MySQLService {
         cloudflare_turnstile_enable: Boolean(r.cloudflare_turnstile_enable),
         cloudflare_site_key: r.cloudflare_site_key || '',
         cloudflare_secret_key: r.cloudflare_secret_key || '',
+        recaptcha_enable: Boolean(r.recaptcha_enable),
+        recaptcha_site_key: r.recaptcha_site_key || '',
+        recaptcha_secret_key: r.recaptcha_secret_key || '',
+        recaptcha_version: r.recaptcha_version || 'v2_checkbox',
+        captcha_provider: r.captcha_provider || 'recaptcha',
         default_expiration_days: r.default_expiration_days || 0,
         allow_unlimited_expiration: Boolean(r.allow_unlimited_expiration),
-        max_expiration_days: r.max_expiration_days || 0
+        max_expiration_days: r.max_expiration_days || 0,
+        private_mode_enable: Boolean(r.private_mode_enable),
+        custom_login_path: r.custom_login_path || '/login'
       };
     } catch (e) {
       console.error('Error fetching settings from MySQL:', e);
@@ -439,15 +460,18 @@ export class MySQLService {
     if (!this.pool || !this.isConnected) return;
     try {
       await this.pool.query(
-        `INSERT INTO settings (id, site_name, site_domain, default_limit, register_enable, upload_enable, default_redirect, logo, favicon, bot_list, cloudflare_turnstile_enable, cloudflare_site_key, cloudflare_secret_key, default_expiration_days, allow_unlimited_expiration, max_expiration_days)
-         VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO settings (id, site_name, site_domain, default_limit, register_enable, upload_enable, default_redirect, logo, favicon, bot_list, cloudflare_turnstile_enable, cloudflare_site_key, cloudflare_secret_key, recaptcha_enable, recaptcha_site_key, recaptcha_secret_key, recaptcha_version, captcha_provider, default_expiration_days, allow_unlimited_expiration, max_expiration_days, private_mode_enable, custom_login_path)
+         VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
          site_name=VALUES(site_name), site_domain=VALUES(site_domain), default_limit=VALUES(default_limit),
          register_enable=VALUES(register_enable), upload_enable=VALUES(upload_enable), default_redirect=VALUES(default_redirect),
          logo=VALUES(logo), favicon=VALUES(favicon), bot_list=VALUES(bot_list), cloudflare_turnstile_enable=VALUES(cloudflare_turnstile_enable),
          cloudflare_site_key=VALUES(cloudflare_site_key), cloudflare_secret_key=VALUES(cloudflare_secret_key),
+         recaptcha_enable=VALUES(recaptcha_enable), recaptcha_site_key=VALUES(recaptcha_site_key), recaptcha_secret_key=VALUES(recaptcha_secret_key),
+         recaptcha_version=VALUES(recaptcha_version), captcha_provider=VALUES(captcha_provider),
          default_expiration_days=VALUES(default_expiration_days), allow_unlimited_expiration=VALUES(allow_unlimited_expiration),
-         max_expiration_days=VALUES(max_expiration_days)`,
+         max_expiration_days=VALUES(max_expiration_days), private_mode_enable=VALUES(private_mode_enable),
+         custom_login_path=VALUES(custom_login_path)`,
         [
           settings.site_name,
           settings.site_domain,
@@ -461,9 +485,16 @@ export class MySQLService {
           settings.cloudflare_turnstile_enable ? 1 : 0,
           settings.cloudflare_site_key || '',
           settings.cloudflare_secret_key || '',
+          settings.recaptcha_enable ? 1 : 0,
+          settings.recaptcha_site_key || '',
+          settings.recaptcha_secret_key || '',
+          settings.recaptcha_version || 'v2_checkbox',
+          settings.captcha_provider || 'recaptcha',
           settings.default_expiration_days || 0,
           settings.allow_unlimited_expiration ? 1 : 0,
-          settings.max_expiration_days || 0
+          settings.max_expiration_days || 0,
+          settings.private_mode_enable ? 1 : 0,
+          settings.custom_login_path || '/login'
         ]
       );
     } catch (e) {
