@@ -30,6 +30,7 @@ export interface LinkItem {
   og_site_name?: string;
   clicks: number;
   status?: 'active' | 'disabled';
+  redirect_code?: number;
   expires_at?: string | null;
   created_at: string;
   updated_at: string;

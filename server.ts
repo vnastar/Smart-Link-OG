@@ -802,9 +802,26 @@ app.put('/api/links/:id', requireAuth, (req: Request, res: Response) => {
     return res.status(403).json({ error: 'Bạn không có quyền chỉnh sửa link này' });
   }
 
-  const { destination_url, title, description, image, expires_at, og_url, og_type, og_site_name, status } = req.body;
+  const { destination_url, title, description, image, expires_at, og_url, og_type, og_site_name, status, redirect_code, slug } = req.body;
+
+  let newSlug = existing.slug;
+  if (slug && slug.trim() !== existing.slug) {
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Chỉ Quản trị viên mới có quyền đổi Slug của link' });
+    }
+    const sanitized = slug.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    if (!sanitized) {
+      return res.status(400).json({ error: 'Slug không hợp lệ' });
+    }
+    const conflict = db.getLinkBySlug(sanitized);
+    if (conflict && conflict.id !== linkId) {
+      return res.status(400).json({ error: `Slug '/${sanitized}' đã tồn tại trên hệ thống, vui lòng chọn slug khác` });
+    }
+    newSlug = sanitized;
+  }
 
   const updated = db.updateLink(linkId, {
+    slug: newSlug,
     destination_url: destination_url || existing.destination_url,
     title: title !== undefined ? title : existing.title,
     description: description !== undefined ? description : existing.description,
@@ -813,6 +830,7 @@ app.put('/api/links/:id', requireAuth, (req: Request, res: Response) => {
     og_type: og_type !== undefined ? og_type : existing.og_type,
     og_site_name: og_site_name !== undefined ? og_site_name : existing.og_site_name,
     status: status !== undefined ? status : existing.status,
+    redirect_code: redirect_code !== undefined ? Number(redirect_code) : existing.redirect_code,
     expires_at: expires_at !== undefined ? expires_at : existing.expires_at
   });
 

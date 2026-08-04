@@ -31,6 +31,7 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
 
   // Edit Modal States
   const [editingLink, setEditingLink] = useState<LinkItem | null>(null);
+  const [editSlug, setEditSlug] = useState('');
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [editImage, setEditImage] = useState('');
@@ -39,6 +40,7 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
   const [editOgType, setEditOgType] = useState('website');
   const [editOgSiteName, setEditOgSiteName] = useState('');
   const [editStatus, setEditStatus] = useState<'active' | 'disabled'>('active');
+  const [editRedirectCode, setEditRedirectCode] = useState<number>(302);
   const [showEditAdvanced, setShowEditAdvanced] = useState(false);
   const [editExpiresAt, setEditExpiresAt] = useState('');
   const [hasEditExpiration, setHasEditExpiration] = useState(false);
@@ -153,6 +155,7 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
 
   const startEdit = (link: LinkItem) => {
     setEditingLink(link);
+    setEditSlug(link.slug || '');
     setEditTitle(link.title || '');
     setEditDesc(link.description || '');
     setEditImage(link.image || '');
@@ -161,6 +164,7 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
     setEditOgType(link.og_type || 'website');
     setEditOgSiteName(link.og_site_name || '');
     setEditStatus(link.status || 'active');
+    setEditRedirectCode(link.redirect_code || 302);
     setShowEditAdvanced(!!(link.og_url || link.og_site_name || (link.og_type && link.og_type !== 'website')));
 
     if (link.expires_at) {
@@ -212,17 +216,23 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
 
   const saveEdit = async () => {
     if (!editingLink) return;
+    if (!editDest.trim()) {
+      alert('Vui lòng nhập Đường dẫn đích (Destination URL)');
+      return;
+    }
     setSavingEdit(true);
     try {
       await api.updateLink(editingLink.id, {
+        slug: editSlug.trim(),
         title: editTitle,
         description: editDesc,
         image: editImage,
-        destination_url: editDest,
+        destination_url: editDest.trim(),
         og_url: editOgUrl.trim(),
         og_type: editOgType.trim() || 'website',
         og_site_name: editOgSiteName.trim(),
         status: editStatus,
+        redirect_code: editRedirectCode,
         expires_at: hasEditExpiration && editExpiresAt ? editExpiresAt : null
       });
       setEditingLink(null);
@@ -463,59 +473,155 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
 
       {/* Admin Edit Modal */}
       {editingLink && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl p-5 space-y-4 text-slate-100 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="font-bold text-base flex items-center gap-2 text-purple-400">
-                <Edit3 className="w-4 h-4" /> Quản Trị Viên: Chỉnh Sửa Link /{editingLink.slug}
-              </h3>
+        <div
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 animate-fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEditingLink(null);
+          }}
+        >
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-xl max-h-[90vh] flex flex-col shadow-2xl relative text-slate-100 overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-800 bg-slate-950/80 backdrop-blur-xs shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 shrink-0">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-100 flex items-center gap-2">
+                    Quản Trị Viên: Chỉnh Sửa Link
+                    <span className="font-mono text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20 text-xs">
+                      /{editingLink.slug}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400">Tùy chỉnh slug, đường dẫn đích, thẻ OpenGraph và thuộc tính link</p>
+                </div>
+              </div>
               <button
                 onClick={() => setEditingLink(null)}
-                className="text-slate-400 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-800"
+                className="text-slate-400 hover:text-slate-200 p-2 rounded-xl hover:bg-slate-800 transition"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-3.5">
+            {/* Modal Body - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+              {/* Custom Slug Editing (Admin Only) */}
+              <div className="bg-purple-950/30 border border-purple-500/20 rounded-xl p-3.5 space-y-1.5">
+                <label className="block text-xs font-bold text-purple-300 uppercase tracking-wider">
+                  Đường Dẫn Slug (Tùy chỉnh Admin)
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono text-slate-400 bg-slate-950 px-2.5 py-2 rounded-lg border border-slate-800 shrink-0">
+                    {siteDomain.replace(/\/$/, '')}/
+                  </span>
+                  <input
+                    type="text"
+                    value={editSlug}
+                    onChange={(e) => setEditSlug(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
+                    placeholder="custom-slug"
+                    className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs font-mono text-purple-200 focus:outline-none focus:border-purple-500 min-h-[40px]"
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400">Admins có thể sửa đổi slug của bất kỳ liên kết nào trên hệ thống.</p>
+              </div>
+
+              {/* Destination URL */}
               <div>
-                <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                  Link Đích (Destination URL)
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                  <span>Link Đích (Destination URL) <span className="text-rose-400">*</span></span>
                 </label>
                 <input
                   type="url"
+                  required
                   value={editDest}
                   onChange={(e) => setEditDest(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-purple-500 min-h-[40px]"
+                  placeholder="https://trangweb.com/link-goc"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-purple-500 min-h-[42px]"
                 />
               </div>
 
+              {/* Status & Redirect Code Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 bg-slate-950 border border-slate-800 rounded-xl p-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Trạng Thái Link
+                  </label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setEditStatus('active')}
+                      className={`py-2 px-2.5 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 transition ${
+                        editStatus === 'active'
+                          ? 'bg-emerald-600 text-white border-emerald-500 font-bold shadow-2xs'
+                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'
+                      }`}
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      Hoạt động
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditStatus('disabled')}
+                      className={`py-2 px-2.5 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 transition ${
+                        editStatus === 'disabled'
+                          ? 'bg-rose-600 text-white border-rose-500 font-bold shadow-2xs'
+                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'
+                      }`}
+                    >
+                      <Power className="w-3.5 h-3.5" />
+                      Tạm khóa
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Mã Chuyển Hướng HTTP
+                  </label>
+                  <select
+                    value={editRedirectCode}
+                    onChange={(e) => setEditRedirectCode(Number(e.target.value))}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 font-semibold focus:outline-none focus:border-purple-500 min-h-[38px]"
+                  >
+                    <option value={302}>302 - Tạm thời (Recommended)</option>
+                    <option value={301}>301 - Vĩnh viễn (Permanent)</option>
+                    <option value={307}>307 - Temporary Redirect</option>
+                    <option value={308}>308 - Permanent Redirect</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Title & Description */}
               <div>
-                <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                  Tiêu Đề OpenGraph
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Tiêu đề OpenGraph
                 </label>
                 <input
                   type="text"
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-purple-500 min-h-[40px]"
+                  placeholder="Tiêu đề bài viết, trang web..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-purple-500 min-h-[40px]"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                  Mô Tả OpenGraph
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Mô tả OpenGraph
                 </label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={editDesc}
                   onChange={(e) => setEditDesc(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-purple-500"
+                  placeholder="Mô tả xem trước khi chia sẻ..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-purple-500 resize-none"
                 />
               </div>
 
+              {/* Image URL + Upload + Live Preview */}
               <div>
-                <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
                   URL Ảnh OpenGraph
                 </label>
                 <div className="space-y-2">
@@ -526,8 +632,8 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
                     placeholder="Dán URL ảnh hoặc tải ảnh lên..."
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-purple-500 min-h-[40px]"
                   />
-                  <div className="flex items-center justify-between gap-2">
-                    <label className="cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5 min-h-[38px]">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label className="cursor-pointer bg-purple-900/40 hover:bg-purple-900/60 text-purple-200 border border-purple-500/30 px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 min-h-[38px]">
                       <Upload className="w-3.5 h-3.5 text-purple-400" />
                       <span>{uploadingImage ? 'Đang tải lên...' : 'Tải ảnh từ máy (Max 5MB)'}</span>
                       <input
@@ -538,12 +644,31 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
                       />
                     </label>
                     {editImage && (
-                      <span className="text-[11px] text-emerald-400 font-medium flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
-                        <Check className="w-3 h-3" />
-                        Đã có ảnh
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setEditImage('')}
+                        className="text-[11px] text-rose-400 hover:text-rose-300 font-semibold bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 rounded-lg transition"
+                      >
+                        Xóa ảnh
+                      </button>
                     )}
                   </div>
+
+                  {/* Live Thumbnail Box */}
+                  {editImage && (
+                    <div className="p-2 bg-slate-950 border border-slate-800 rounded-xl flex items-center gap-3">
+                      <img
+                        src={editImage}
+                        alt="Preview"
+                        className="w-16 h-12 object-cover rounded-lg border border-slate-800 shrink-0 bg-slate-900"
+                        onError={(e) => { (e.target as any).style.display = 'none'; }}
+                      />
+                      <div className="text-[11px] text-slate-300 min-w-0">
+                        <span className="font-bold text-emerald-400 block">✓ Đã gắn ảnh đại diện</span>
+                        <span className="text-[10px] text-slate-500 truncate block font-mono">{editImage}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -558,10 +683,10 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
                     <Sliders className="w-4 h-4 text-purple-400" />
                     <div>
                       <span className="text-xs font-bold text-slate-200 block">
-                        Tùy chọn Nâng cao (Advance: og:url, og:type, og:site_name)
+                        Tùy chọn Nâng cao (og:site_name, og:url, og:type)
                       </span>
                       <span className="text-[10px] text-slate-400 block">
-                        Tùy chỉnh thẻ meta og:url, og:type và og:site_name
+                        Tùy chỉnh thẻ Meta nâng cao cho crawler mạng xã hội
                       </span>
                     </div>
                   </div>
@@ -574,7 +699,6 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
 
                 {showEditAdvanced && (
                   <div className="p-3 border-t border-slate-800 space-y-3 bg-slate-900">
-                    {/* og:site_name */}
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
                         OpenGraph Site Name (og:site_name)
@@ -588,7 +712,6 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
                       />
                     </div>
 
-                    {/* og:url */}
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
                         OpenGraph Canonical URL (og:url)
@@ -602,7 +725,6 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
                       />
                     </div>
 
-                    {/* og:type */}
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
                         OpenGraph Type (og:type)
@@ -642,39 +764,6 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
                 )}
               </div>
 
-              {/* Status Toggle in Edit Modal */}
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                  Trạng Thái Link
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditStatus('active')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-medium flex items-center justify-center gap-1.5 transition ${
-                      editStatus === 'active'
-                        ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 font-bold'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-800'
-                    }`}
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Hoạt động (Active)</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditStatus('disabled')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-medium flex items-center justify-center gap-1.5 transition ${
-                      editStatus === 'disabled'
-                        ? 'bg-red-500/20 border-red-500/50 text-red-300 font-bold'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-800'
-                    }`}
-                  >
-                    <Power className="w-3.5 h-3.5" />
-                    <span>Tắt (Disabled)</span>
-                  </button>
-                </div>
-              </div>
-
               {/* Expiration Date Toggle */}
               <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-3">
                 <div className="flex items-center justify-between gap-3">
@@ -709,8 +798,8 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
                 </div>
 
                 {hasEditExpiration && (
-                  <div className="pt-2 border-t border-slate-800">
-                    <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                  <div className="pt-2 border-t border-slate-800 space-y-2">
+                    <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                       Thời gian hết hạn
                     </label>
                     <div className="relative">
@@ -722,16 +811,40 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
                         className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-100 focus:outline-none focus:border-purple-500 min-h-[40px]"
                       />
                     </div>
+                    {/* Quick Preset Buttons */}
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <span className="text-[10px] text-slate-500 font-semibold uppercase">Nhanh:</span>
+                      {[
+                        { label: '+1 Ngày', days: 1 },
+                        { label: '+7 Ngày', days: 7 },
+                        { label: '+30 Ngày', days: 30 }
+                      ].map(preset => (
+                        <button
+                          key={preset.days}
+                          type="button"
+                          onClick={() => {
+                            const d = new Date();
+                            d.setDate(d.getDate() + preset.days);
+                            const isoStr = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                            setEditExpiresAt(isoStr);
+                          }}
+                          className="px-2 py-0.5 bg-slate-900 border border-slate-800 hover:border-purple-500 text-[10px] text-slate-300 font-medium rounded transition"
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="flex gap-2 pt-2 border-t border-slate-800">
+            {/* Modal Footer - Sticky Bottom */}
+            <div className="p-4 sm:p-5 border-t border-slate-800 bg-slate-950/80 backdrop-blur-xs flex items-center justify-end gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setEditingLink(null)}
-                className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition"
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition"
               >
                 Hủy
               </button>
@@ -739,7 +852,7 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
                 type="button"
                 onClick={saveEdit}
                 disabled={savingEdit}
-                className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5"
+                className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md shadow-purple-600/20 transition"
               >
                 <Save className="w-4 h-4" />
                 <span>{savingEdit ? 'Đang lưu...' : 'Lưu Thay Đổi'}</span>
