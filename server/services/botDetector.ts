@@ -21,6 +21,8 @@ export class BotDetector {
       'facebook',
       'telegrambot',
       'telegram',
+      'telegram-bot',
+      't.me',
       'twitterbot',
       'twitter',
       'discordbot',
@@ -175,36 +177,55 @@ export class BotDetector {
 
     let cleanDomain = (currentDomain || '').trim().replace(/\/$/, '');
     
+    // Ensure cleanDomain starts with http(s)://
+    if (cleanDomain && !cleanDomain.startsWith('http://') && !cleanDomain.startsWith('https://')) {
+      cleanDomain = `https://${cleanDomain}`;
+    }
+
     // Auto upgrade http to https for non-localhost domains
     if (cleanDomain.startsWith('http://') && !cleanDomain.includes('localhost') && !cleanDomain.includes('127.0.0.1')) {
       cleanDomain = cleanDomain.replace('http://', 'https://');
     }
 
-    // Relative path starting with /
-    if (img.startsWith('/')) {
-      return cleanDomain ? `${cleanDomain}${img}` : img;
-    }
-
-    // Relative path starting with uploads/
-    if (img.startsWith('uploads/')) {
-      return cleanDomain ? `${cleanDomain}/${img}` : `/${img}`;
-    }
+    let finalUrl = '';
 
     // Full URL http(s)://...
     if (img.startsWith('http://') || img.startsWith('https://')) {
       const uploadsIndex = img.indexOf('/uploads/');
       if (uploadsIndex !== -1 && cleanDomain) {
         const pathAfterUploads = img.substring(uploadsIndex);
-        return `${cleanDomain}${pathAfterUploads}`;
+        finalUrl = `${cleanDomain}${pathAfterUploads}`;
+      } else {
+        finalUrl = img;
+        if (finalUrl.startsWith('http://') && !finalUrl.includes('localhost') && !finalUrl.includes('127.0.0.1')) {
+          finalUrl = finalUrl.replace('http://', 'https://');
+        }
       }
-      // Force https for external images if not localhost
-      if (img.startsWith('http://') && !img.includes('localhost') && !img.includes('127.0.0.1')) {
-        return img.replace('http://', 'https://');
-      }
-      return img;
+    }
+    // Relative path starting with /
+    else if (img.startsWith('/')) {
+      finalUrl = cleanDomain ? `${cleanDomain}${img}` : img;
+    }
+    // Relative path starting with uploads/
+    else if (img.startsWith('uploads/')) {
+      finalUrl = cleanDomain ? `${cleanDomain}/${img}` : `/${img}`;
+    }
+    // Plain filename or other relative path
+    else {
+      finalUrl = cleanDomain ? `${cleanDomain}/uploads/${img}` : `/uploads/${img}`;
     }
 
-    return img;
+    // Encode spaces and special characters in URL path while keeping protocol intact
+    try {
+      if (finalUrl.startsWith('http://') || finalUrl.startsWith('https://')) {
+        const urlObj = new URL(finalUrl);
+        urlObj.pathname = urlObj.pathname.split('/').map(segment => encodeURIComponent(decodeURIComponent(segment))).join('/');
+        return urlObj.toString();
+      }
+      return encodeURI(finalUrl);
+    } catch {
+      return finalUrl;
+    }
   }
 
   private static formatUrl(rawUrl: string, currentDomain?: string): string {

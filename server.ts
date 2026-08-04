@@ -70,8 +70,10 @@ function getRequestSiteDomain(req: Request): string {
     }
     return domain;
   }
-  const host = req.get('x-forwarded-host') || req.get('host') || 'localhost:3000';
-  let protocol = req.get('x-forwarded-proto') || req.protocol || 'http';
+  const rawHost = req.get('x-forwarded-host') || req.get('host') || 'localhost:3000';
+  const host = rawHost.split(',')[0].trim();
+  let rawProto = req.get('x-forwarded-proto') || req.protocol || 'http';
+  let protocol = rawProto.split(',')[0].trim();
   
   // Enforce https on non-localhost domains for Facebook/Telegram social preview crawlers
   if (!host.includes('localhost') && !host.includes('127.0.0.1')) {
