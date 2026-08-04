@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Bot, Play, Globe, CheckCircle2, AlertCircle, RefreshCw, Code, ArrowRight } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { BotSimulationResult } from '../types.js';
@@ -31,24 +31,38 @@ export const BotSimulatorModal: React.FC<BotSimulatorModalProps> = ({
   const [result, setResult] = useState<BotSimulationResult | null>(null);
   const [error, setError] = useState('');
 
-  if (!isOpen) return null;
-
   const currentUA = customUA || PRESET_BOTS[selectedBotIndex].ua;
 
-  const handleSimulate = async () => {
-    if (!slug.trim()) return;
+  const runSimulation = async (targetSlug: string, ua: string) => {
+    if (!targetSlug.trim()) return;
     setLoading(true);
     setError('');
     setResult(null);
 
     try {
-      const data = await api.simulateBot(slug.trim(), currentUA);
+      const data = await api.simulateBot(targetSlug.trim(), ua);
       setResult(data);
     } catch (err: any) {
       setError(err.message || 'Lỗi khi giả lập yêu cầu');
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      const activeSlug = initialSlug || 'video01';
+      setSlug(activeSlug);
+      setResult(null);
+      setError('');
+      runSimulation(activeSlug, currentUA);
+    }
+  }, [isOpen, initialSlug]);
+
+  if (!isOpen) return null;
+
+  const handleSimulate = () => {
+    runSimulation(slug, currentUA);
   };
 
   return (
@@ -101,6 +115,7 @@ export const BotSimulatorModal: React.FC<BotSimulatorModalProps> = ({
                   onClick={() => {
                     setSelectedBotIndex(idx);
                     setCustomUA('');
+                    runSimulation(slug, b.ua);
                   }}
                   className={`p-2.5 rounded-lg border text-left text-xs transition flex flex-col justify-between ${
                     selectedBotIndex === idx && !customUA
