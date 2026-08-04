@@ -15,10 +15,15 @@ export class BotDetector {
 
     const defaultBotTokens = [
       'facebookexternalhit',
+      'facebookexternalua',
+      'facebookcatalog',
       'facebot',
-      'twitterbot',
-      'discordbot',
+      'facebook',
       'telegrambot',
+      'telegram',
+      'twitterbot',
+      'twitter',
+      'discordbot',
       'linkedinbot',
       'slackbot',
       'whatsapp',
@@ -33,8 +38,11 @@ export class BotDetector {
       'skypeuripreview',
       'vkshare',
       'outbrain',
+      'zalobot',
       'zalo',
-      'viber'
+      'viber',
+      'curl',
+      'wget'
     ];
 
     const allTokens = Array.from(new Set([...defaultBotTokens, ...customBots]));
@@ -46,6 +54,19 @@ export class BotDetector {
     }
 
     return { isBot: false };
+  }
+
+  /**
+   * Detect MIME type of image URL for og:image:type
+   */
+  private static detectMimeType(imageUrl: string): string {
+    if (!imageUrl) return 'image/jpeg';
+    const lower = imageUrl.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    if (lower.endsWith('.svg')) return 'image/svg+xml';
+    return 'image/jpeg';
   }
 
   /**
@@ -65,7 +86,16 @@ export class BotDetector {
     const { title, description, image, url, siteName, ogType, ogUrl, ogSiteName, siteDomain } = options;
 
     const currentDomain = siteDomain || this.extractDomainFromUrl(url);
-    const formattedImage = this.formatImageUrl(image, currentDomain);
+    let formattedImage = this.formatImageUrl(image, currentDomain);
+
+    // Fallback to site logo if link has no image
+    if (!formattedImage) {
+      const settings = db.getSettings();
+      if (settings.logo) {
+        formattedImage = this.formatImageUrl(settings.logo, currentDomain);
+      }
+    }
+
     const formattedUrl = (ogUrl && ogUrl.trim()) ? this.formatUrl(ogUrl.trim(), currentDomain) : url;
 
     const safeTitle = this.escapeHtml(title || siteName);
@@ -74,38 +104,50 @@ export class BotDetector {
     const safeUrl = this.escapeHtml(formattedUrl);
     const safeType = this.escapeHtml((ogType && ogType.trim()) ? ogType.trim() : 'website');
     const safeSite = this.escapeHtml((ogSiteName && ogSiteName.trim()) ? ogSiteName.trim() : siteName);
-
-    const isHttps = safeImage.startsWith('https://');
+    const safeMime = this.detectMimeType(formattedImage);
 
     return `<!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" prefix="og: http://ogp.me/ns#">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${safeTitle}</title>
-    <!-- Open Graph / Facebook / Zalo / Telegram / iMessage -->
+
+    <!-- Essential Open Graph / Facebook / Zalo / Telegram / WhatsApp -->
+    <meta property="og:site_name" content="${safeSite}">
     <meta property="og:type" content="${safeType}">
     <meta property="og:url" content="${safeUrl}">
     <meta property="og:title" content="${safeTitle}">
     <meta property="og:description" content="${safeDesc}">
+    ${safeImage ? `
     <meta property="og:image" content="${safeImage}">
-${isHttps ? `    <meta property="og:image:secure_url" content="${safeImage}">` : ''}
+    <meta property="og:image:url" content="${safeImage}">
+    <meta property="og:image:secure_url" content="${safeImage}">
+    <meta property="og:image:type" content="${safeMime}">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:site_name" content="${safeSite}">
+    <meta property="og:image:alt" content="${safeTitle}">
+    ` : ''}
 
-    <!-- Schema.org / Google / Zalo Microdata -->
-    <meta itemprop="name" content="${safeTitle}">
-    <meta itemprop="description" content="${safeDesc}">
-    <meta itemprop="image" content="${safeImage}">
-
-    <!-- Twitter -->
+    <!-- Twitter Card Meta Tags (Telegram & Twitter/X) -->
     <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="${safeSite}">
     <meta name="twitter:url" content="${safeUrl}">
     <meta name="twitter:title" content="${safeTitle}">
     <meta name="twitter:description" content="${safeDesc}">
+    ${safeImage ? `
     <meta name="twitter:image" content="${safeImage}">
     <meta name="twitter:image:src" content="${safeImage}">
+    ` : ''}
+
+    <!-- Schema.org / Microdata -->
+    <meta itemprop="name" content="${safeTitle}">
+    <meta itemprop="description" content="${safeDesc}">
+    ${safeImage ? `<meta itemprop="image" content="${safeImage}">` : ''}
+
+    <!-- Canonical & Legacy Image Links -->
+    <link rel="canonical" href="${safeUrl}">
+    ${safeImage ? `<link rel="image_src" href="${safeImage}">` : ''}
 </head>
 <body>
     <div style="font-family: sans-serif; padding: 20px; text-align: center;">
@@ -131,27 +173,35 @@ ${isHttps ? `    <meta property="og:image:secure_url" content="${safeImage}">` :
     if (!rawImage || !rawImage.trim()) return '';
     let img = rawImage.trim();
 
-    if (!currentDomain || !currentDomain.trim()) return img;
-    const cleanDomain = currentDomain.trim().replace(/\/$/, '');
+    let cleanDomain = (currentDomain || '').trim().replace(/\/$/, '');
+    
+    // Auto upgrade http to https for non-localhost domains
+    if (cleanDomain.startsWith('http://') && !cleanDomain.includes('localhost') && !cleanDomain.includes('127.0.0.1')) {
+      cleanDomain = cleanDomain.replace('http://', 'https://');
+    }
 
-    // Trường hợp 1: Ảnh dạng relative tuyệt đối /uploads/xxx
+    // Relative path starting with /
     if (img.startsWith('/')) {
-      return `${cleanDomain}${img}`;
+      return cleanDomain ? `${cleanDomain}${img}` : img;
     }
 
-    // Trường hợp 2: Ảnh dạng relative uploads/xxx
+    // Relative path starting with uploads/
     if (img.startsWith('uploads/')) {
-      return `${cleanDomain}/${img}`;
+      return cleanDomain ? `${cleanDomain}/${img}` : `/${img}`;
     }
 
-    // Trường hợp 3: Ảnh đã là full URL http(s)://...
+    // Full URL http(s)://...
     if (img.startsWith('http://') || img.startsWith('https://')) {
-      // Nếu là ảnh lưu trữ thuộc hệ thống (/uploads/) nhưng mang domain cũ hoặc sai domain
       const uploadsIndex = img.indexOf('/uploads/');
-      if (uploadsIndex !== -1) {
+      if (uploadsIndex !== -1 && cleanDomain) {
         const pathAfterUploads = img.substring(uploadsIndex);
         return `${cleanDomain}${pathAfterUploads}`;
       }
+      // Force https for external images if not localhost
+      if (img.startsWith('http://') && !img.includes('localhost') && !img.includes('127.0.0.1')) {
+        return img.replace('http://', 'https://');
+      }
+      return img;
     }
 
     return img;
@@ -176,3 +226,4 @@ ${isHttps ? `    <meta property="og:image:secure_url" content="${safeImage}">` :
       .replace(/'/g, '&#039;');
   }
 }
+

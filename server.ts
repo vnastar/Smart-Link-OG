@@ -9,6 +9,7 @@ import { BotDetector } from './server/services/botDetector.js';
 import { VisitLog } from './src/types.js';
 
 const app = express();
+app.set('trust proxy', true);
 const PORT = Number(process.env.PORT) || 3000;
 
 // CORS headers for hosting environments
@@ -36,8 +37,18 @@ const publicUploadsDir = path.join(process.cwd(), 'public', 'uploads');
 });
 
 const uploadsDir = persistentUploadsDir;
-app.use('/uploads', express.static(persistentUploadsDir));
-app.use('/uploads', express.static(publicUploadsDir));
+
+// Static file headers for social media image crawlers (Facebook, Telegram, Zalo)
+const uploadStaticOptions = {
+  setHeaders: (res: Response) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+  }
+};
+
+app.use('/uploads', express.static(persistentUploadsDir, uploadStaticOptions));
+app.use('/uploads', express.static(publicUploadsDir, uploadStaticOptions));
 
 // Helper: Extract Auth User from custom Session / Auth Header
 function getAuthUser(req: Request) {
@@ -53,10 +64,19 @@ function getAuthUser(req: Request) {
 function getRequestSiteDomain(req: Request): string {
   const settings = db.getSettings();
   if (settings.site_domain && settings.site_domain.trim() !== '') {
-    return settings.site_domain.trim().replace(/\/$/, '');
+    let domain = settings.site_domain.trim().replace(/\/$/, '');
+    if (!domain.startsWith('http://') && !domain.startsWith('https://')) {
+      domain = `https://${domain}`;
+    }
+    return domain;
   }
   const host = req.get('x-forwarded-host') || req.get('host') || 'localhost:3000';
-  const protocol = req.get('x-forwarded-proto') || req.protocol || 'http';
+  let protocol = req.get('x-forwarded-proto') || req.protocol || 'http';
+  
+  // Enforce https on non-localhost domains for Facebook/Telegram social preview crawlers
+  if (!host.includes('localhost') && !host.includes('127.0.0.1')) {
+    protocol = 'https';
+  }
   return `${protocol}://${host}`;
 }
 
