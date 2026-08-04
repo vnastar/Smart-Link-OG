@@ -6,7 +6,7 @@ import { createServer as createViteServer } from 'vite';
 import { db } from './server/db.js';
 import { mysqlService } from './server/mysql.js';
 import { BotDetector } from './server/services/botDetector.js';
-import { ImageOptimizer } from './server/services/imageOptimizer.js';
+import { ImageOptimizer, ImageMode } from './server/services/imageOptimizer.js';
 import { VisitLog } from './src/types.js';
 
 const app = express();
@@ -903,7 +903,7 @@ app.post('/api/upload', requireAuth, async (req: Request, res: Response) => {
     return res.status(403).json({ error: 'Hệ thống đã tắt chức năng upload ảnh' });
   }
 
-  const { image_base64, file_name } = req.body;
+  const { image_base64, file_name, image_mode = 'fast' } = req.body;
   if (!image_base64) {
     return res.status(400).json({ error: 'Không tìm thấy dữ liệu ảnh' });
   }
@@ -912,8 +912,8 @@ app.post('/api/upload', requireAuth, async (req: Request, res: Response) => {
     const base64Data = image_base64.replace(/^data:image\/\w+;base64,/, '').replace(/^data:image\/x-icon;base64,/, '').replace(/^data:image\/vnd\.microsoft\.icon;base64,/, '').replace(/^data:image\/svg\+xml;base64,/, '');
     const rawBuffer = Buffer.from(base64Data, 'base64');
 
-    if (rawBuffer.length > 10 * 1024 * 1024) {
-      return res.status(400).json({ error: 'Kích thước file vượt quá giới hạn 10MB' });
+    if (rawBuffer.length > 20 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Kích thước file vượt quá giới hạn 20MB' });
     }
 
     let detectedExt = 'jpg';
@@ -931,8 +931,10 @@ app.post('/api/upload', requireAuth, async (req: Request, res: Response) => {
       detectedExt = 'webp';
     }
 
-    // Automatically optimize buffer: resize to max 1200x630 & compress for bot preview
-    const optimized = await ImageOptimizer.optimizeBuffer(rawBuffer, detectedExt);
+    const mode: ImageMode = image_mode === 'hq' ? 'hq' : 'fast';
+
+    // Optimize buffer according to mode ('fast' for ultra-light Bot latency or 'hq' for sharp original)
+    const optimized = await ImageOptimizer.optimizeBuffer(rawBuffer, detectedExt, mode);
 
     const uniqueName = `img_${Date.now()}_${Math.random().toString(36).substr(2, 6)}.${optimized.ext}`;
     const targetPath = path.join(uploadsDir, uniqueName);
@@ -941,7 +943,13 @@ app.post('/api/upload', requireAuth, async (req: Request, res: Response) => {
     const siteDomain = getRequestSiteDomain(req);
     const publicUrl = `${siteDomain}/uploads/${uniqueName}`;
 
-    return res.json({ url: publicUrl });
+    return res.json({
+      url: publicUrl,
+      mode: mode,
+      size: optimized.buffer.length,
+      width: optimized.width,
+      height: optimized.height
+    });
   } catch (err) {
     console.error('Upload error:', err);
     return res.status(500).json({ error: 'Lỗi lưu trữ file ảnh' });

@@ -241,7 +241,8 @@ export const AdminSettingsView: React.FC = () => {
           return;
         }
         try {
-          const uploadedUrl = await api.uploadImage(base64, file.name);
+          const result = await api.uploadImage(base64, file.name);
+          const uploadedUrl = typeof result === 'string' ? result : result.url;
           if (target === 'logo') {
             setSettings({ ...settings, logo: uploadedUrl });
           } else {

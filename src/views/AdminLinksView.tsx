@@ -193,8 +193,8 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert('File ảnh không được vượt quá 5MB');
+    if (file.size > 20 * 1024 * 1024) {
+      alert('File ảnh không được vượt quá 20MB');
       return;
     }
 
@@ -203,8 +203,9 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
       const base64 = reader.result as string;
       setUploadingImage(true);
       try {
-        const url = await api.uploadImage(base64, file.name);
-        const fullUrl = url.startsWith('/') ? `${window.location.origin}${url}` : url;
+        const result = await api.uploadImage(base64, file.name);
+        const rawUrl = typeof result === 'string' ? result : result.url;
+        const fullUrl = rawUrl.startsWith('/') ? `${window.location.origin}${rawUrl}` : rawUrl;
         setEditImage(fullUrl);
       } catch (err: any) {
         alert(err.message || 'Upload ảnh thất bại');

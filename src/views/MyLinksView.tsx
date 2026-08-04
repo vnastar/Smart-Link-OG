@@ -45,13 +45,14 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
   const [hasEditExpiration, setHasEditExpiration] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [editImageMode, setEditImageMode] = useState<'fast' | 'hq'>('fast');
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert('File ảnh không được vượt quá 5MB');
+    if (file.size > 20 * 1024 * 1024) {
+      alert('File ảnh không được vượt quá 20MB');
       return;
     }
 
@@ -60,8 +61,9 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
       const base64 = reader.result as string;
       setUploadingImage(true);
       try {
-        const url = await api.uploadImage(base64, file.name);
-        const fullUrl = url.startsWith('/') ? `${window.location.origin}${url}` : url;
+        const result = await api.uploadImage(base64, file.name, editImageMode);
+        const rawUrl = typeof result === 'string' ? result : result.url;
+        const fullUrl = rawUrl.startsWith('/') ? `${window.location.origin}${rawUrl}` : rawUrl;
         setEditImage(fullUrl);
       } catch (err: any) {
         alert(err.message || 'Upload ảnh thất bại');
@@ -531,10 +533,37 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
                     className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[40px]"
                   />
 
+                  {/* Mode selector */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <span className="text-[11px] font-medium text-slate-500 shrink-0">Chế độ xử lý:</span>
+                    <button
+                      type="button"
+                      onClick={() => setEditImageMode('fast')}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
+                        editImageMode === 'fast'
+                          ? 'bg-indigo-100 border-indigo-300 text-indigo-800'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      ⚡ Tối ưu Bot (Siêu Nhanh)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditImageMode('hq')}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
+                        editImageMode === 'hq'
+                          ? 'bg-indigo-100 border-indigo-300 text-indigo-800'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      💎 Chất lượng cao (HQ)
+                    </button>
+                  </div>
+
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <label className="cursor-pointer bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 min-h-[38px]">
                       <Upload className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>{uploadingImage ? 'Đang tải lên...' : 'Tải ảnh từ máy (Max 5MB)'}</span>
+                      <span>{uploadingImage ? 'Đang tải & xử lý...' : 'Tải ảnh từ máy (Max 20MB)'}</span>
                       <input
                         type="file"
                         accept="image/png, image/jpeg, image/webp"

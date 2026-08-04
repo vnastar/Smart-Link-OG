@@ -39,6 +39,7 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
 
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [imageMode, setImageMode] = useState<'fast' | 'hq'>('fast');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [createdLink, setCreatedLink] = useState<LinkItem | null>(null);
@@ -96,8 +97,8 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      setError('File ảnh không được vượt quá 5MB');
+    if (file.size > 20 * 1024 * 1024) {
+      setError('File ảnh không được vượt quá 20MB');
       return;
     }
 
@@ -107,8 +108,9 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
       setUploading(true);
       setError('');
       try {
-        const url = await api.uploadImage(base64, file.name);
-        const fullUrl = url.startsWith('/') ? `${window.location.origin}${url}` : url;
+        const result = await api.uploadImage(base64, file.name, imageMode);
+        const rawUrl = typeof result === 'string' ? result : result.url;
+        const fullUrl = rawUrl.startsWith('/') ? `${window.location.origin}${rawUrl}` : rawUrl;
         setImage(fullUrl);
       } catch (err: any) {
         setError(err.message || 'Upload ảnh thất bại');
@@ -370,7 +372,7 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
                   Hình ảnh xem trước (og:image)
                 </label>
 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="relative">
                     <ImageIcon className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input
@@ -382,11 +384,55 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
                     />
                   </div>
 
+                  {/* Mode Selector Option */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 space-y-2">
+                    <span className="text-[11px] font-semibold text-slate-600 block uppercase tracking-wider">
+                      Chế độ xử lý ảnh khi upload:
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setImageMode('fast')}
+                        className={`p-2 rounded-lg text-left border text-xs transition flex items-start gap-2 ${
+                          imageMode === 'fast'
+                            ? 'bg-indigo-50/80 border-indigo-300 text-indigo-900 font-medium shadow-xs'
+                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        <span className="text-base shrink-0">⚡</span>
+                        <div>
+                          <span className="font-bold block text-slate-800 text-xs">Tối ưu Bot (Khuyên dùng)</span>
+                          <span className="text-[10px] text-slate-500 block leading-tight">
+                            Crop 1200x630, nén nhẹ siêu tốc (~150KB-300KB), Bot Zalo/FB preview tức thì
+                          </span>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setImageMode('hq')}
+                        className={`p-2 rounded-lg text-left border text-xs transition flex items-start gap-2 ${
+                          imageMode === 'hq'
+                            ? 'bg-indigo-50/80 border-indigo-300 text-indigo-900 font-medium shadow-xs'
+                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        <span className="text-base shrink-0">💎</span>
+                        <div>
+                          <span className="font-bold block text-slate-800 text-xs">Chất lượng cao (HQ)</span>
+                          <span className="text-[10px] text-slate-500 block leading-tight">
+                            Crop 1200x630, nét căng sắc mịn (Quality 95%), giữ trọn màu sắc chi tiết
+                          </span>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-3.5 py-2.5 rounded-xl text-xs font-medium transition flex items-center justify-center gap-1.5 min-h-[44px]">
                         <Upload className="w-4 h-4 text-indigo-600" />
-                        <span>{uploading ? 'Đang tải lên...' : 'Tải ảnh từ máy (Max 5MB)'}</span>
+                        <span>{uploading ? 'Đang tải & xử lý...' : 'Tải ảnh từ máy (Max 20MB)'}</span>
                         <input
                           type="file"
                           accept="image/png, image/jpeg, image/webp"

@@ -19,12 +19,16 @@ export interface OptimizedImageResult {
   height: number;
 }
 
+export type ImageMode = 'fast' | 'hq';
+
 export class ImageOptimizer {
   /**
-   * Resizes and compresses an uploaded image buffer to OpenGraph standard size (1200x630 max).
-   * Converts to high-quality JPEG (or PNG if transparent) with quality 85.
+   * Resizes and processes an uploaded image buffer to OpenGraph standard size (1200x630).
+   * - mode 'fast': Optimized for Bot latency (JPEG quality 80, lightweight ~150-300KB)
+   * - mode 'hq': High Quality (JPEG quality 95+, sharp details & true colors)
+   * Both modes crop to 1200x630 ratio.
    */
-  static async optimizeBuffer(buffer: Buffer, originalExt?: string): Promise<OptimizedImageResult> {
+  static async optimizeBuffer(buffer: Buffer, originalExt?: string, mode: ImageMode = 'fast'): Promise<OptimizedImageResult> {
     try {
       // Don't process SVG or ICO
       const cleanExt = (originalExt || '').toLowerCase().replace('.', '');
@@ -55,17 +59,25 @@ export class ImageOptimizer {
         };
       }
 
-      // Target dimension: OpenGraph standard 1200 x 630 max
+      // Target dimension: OpenGraph standard 1200 x 630 (1.91:1 ratio)
+      // Smart crop with cover or inside fit
       const transformer = image.resize({
         width: 1200,
         height: 630,
-        fit: 'inside',
+        fit: 'cover',
+        position: 'center',
         withoutEnlargement: false
       });
 
+      const isHq = mode === 'hq';
+
       if (hasAlpha) {
-        // Output clean PNG with compression
-        const outputBuffer = await transformer.png({ quality: 85, compressionLevel: 8 }).toBuffer();
+        // Output clean PNG with mode quality
+        const outputBuffer = await transformer.png({
+          quality: isHq ? 95 : 80,
+          compressionLevel: isHq ? 5 : 9
+        }).toBuffer();
+
         const outMeta = await sharp(outputBuffer).metadata();
         return {
           buffer: outputBuffer,
@@ -75,8 +87,13 @@ export class ImageOptimizer {
           height: outMeta.height || 630
         };
       } else {
-        // Output baseline/progressive JPEG
-        const outputBuffer = await transformer.jpeg({ quality: 85, progressive: true, mozjpeg: true }).toBuffer();
+        // Output JPEG
+        const outputBuffer = await transformer.jpeg({
+          quality: isHq ? 95 : 80,
+          progressive: true,
+          mozjpeg: true
+        }).toBuffer();
+
         const outMeta = await sharp(outputBuffer).metadata();
         return {
           buffer: outputBuffer,

@@ -263,12 +263,12 @@ export const api = {
     });
   },
 
-  async uploadImage(imageBase64: string, fileName?: string): Promise<string> {
+  async uploadImage(imageBase64: string, fileName?: string, imageMode: 'fast' | 'hq' = 'fast'): Promise<{ url: string; size?: number; mode?: string }> {
     const data = await this.request('/api/upload', {
       method: 'POST',
-      body: JSON.stringify({ image_base64: imageBase64, file_name: fileName })
+      body: JSON.stringify({ image_base64: imageBase64, file_name: fileName, image_mode: imageMode })
     });
-    return data.url;
+    return data;
   },
 
   async simulateBot(slug: string, userAgent: string): Promise<BotSimulationResult> {
