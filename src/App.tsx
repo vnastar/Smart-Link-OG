@@ -5,6 +5,7 @@ import { Navbar } from './components/Navbar.js';
 import { Sidebar } from './components/Sidebar.js';
 import { QRCodeModal } from './components/QRCodeModal.js';
 import { BotSimulatorModal } from './components/BotSimulatorModal.js';
+import { LinkAnalyticsModal } from './components/LinkAnalyticsModal.js';
 
 // Views
 import { LoginView } from './views/LoginView.js';
@@ -40,6 +41,14 @@ export default function App() {
     isOpen: false,
     slug: 'video01'
   });
+  const [analyticsModal, setAnalyticsModal] = useState<{ isOpen: boolean; link: any }>({
+    isOpen: false,
+    link: null
+  });
+
+  const openAnalytics = (link: any) => {
+    setAnalyticsModal({ isOpen: true, link });
+  };
 
   // Fetch initial session & public config
   useEffect(() => {
@@ -195,6 +204,7 @@ export default function App() {
               onNavigate={handleNavigate}
               onOpenQR={openQR}
               onOpenBotInspector={openBotInspector}
+              onOpenAnalytics={openAnalytics}
               siteDomain={siteConfig.site_domain}
             />
           )}
@@ -212,6 +222,7 @@ export default function App() {
               user={user}
               onOpenQR={openQR}
               onOpenBotInspector={openBotInspector}
+              onOpenAnalytics={openAnalytics}
               siteDomain={siteConfig.site_domain}
             />
           )}
@@ -245,6 +256,7 @@ export default function App() {
             <AdminLinksView
               onOpenQR={openQR}
               onOpenBotInspector={openBotInspector}
+              onOpenAnalytics={openAnalytics}
               siteDomain={siteConfig.site_domain}
             />
           )}
@@ -272,6 +284,13 @@ export default function App() {
         isOpen={botModal.isOpen}
         onClose={() => setBotModal({ isOpen: false, slug: 'video01' })}
         initialSlug={botModal.slug}
+      />
+
+      <LinkAnalyticsModal
+        isOpen={analyticsModal.isOpen}
+        onClose={() => setAnalyticsModal({ isOpen: false, link: null })}
+        link={analyticsModal.link}
+        isAdmin={user?.role === 'admin'}
       />
     </div>
   );

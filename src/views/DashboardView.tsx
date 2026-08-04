@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { User, UserStats, LinkItem } from '../types.js';
-import { PlusCircle, Link2, MousePointerClick, Calendar, Shield, Copy, Check, QrCode, ExternalLink, Bot, Trash2, Edit3, Search, RefreshCw } from 'lucide-react';
+import { PlusCircle, Link2, MousePointerClick, Calendar, Shield, Copy, Check, QrCode, ExternalLink, Bot, Trash2, Edit3, Search, RefreshCw, BarChart3 } from 'lucide-react';
 import { ClickAnalyticsCard } from '../components/ClickAnalyticsCard.js';
 
 interface DashboardViewProps {
@@ -9,6 +9,7 @@ interface DashboardViewProps {
   onNavigate: (path: string) => void;
   onOpenQR: (slug: string, dest: string) => void;
   onOpenBotInspector: (slug: string) => void;
+  onOpenAnalytics?: (link: LinkItem) => void;
   siteDomain?: string;
 }
 
@@ -17,6 +18,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigate,
   onOpenQR,
   onOpenBotInspector,
+  onOpenAnalytics,
   siteDomain
 }) => {
   const [stats, setStats] = useState<UserStats | null>(null);
@@ -245,6 +247,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </td>
 
                     <td className="p-3 text-right space-x-1">
+                      <button
+                        onClick={() => onOpenAnalytics && onOpenAnalytics(link)}
+                        className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[11px] font-semibold inline-flex items-center gap-1 border border-indigo-200"
+                        title="Xem phân tích chi tiết lượt click, vị trí, thiết bị"
+                      >
+                        <BarChart3 className="w-3 h-3 text-indigo-600" /> Thống kê
+                      </button>
                       <button
                         onClick={() => onOpenBotInspector(link.slug)}
                         className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-medium inline-flex items-center gap-1 border border-slate-200"

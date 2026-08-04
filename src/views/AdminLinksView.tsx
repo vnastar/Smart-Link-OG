@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { LinkItem } from '../types.js';
-import { Link as LinkIcon, Search, Copy, Check, QrCode, Bot, Trash2, Edit3, ExternalLink, Calendar, Upload, X, Save, Sliders, ChevronDown, ChevronUp, Layers, Power, CheckSquare, Square, Clock } from 'lucide-react';
+import { Link as LinkIcon, Search, Copy, Check, QrCode, Bot, Trash2, Edit3, ExternalLink, Calendar, Upload, X, Save, Sliders, ChevronDown, ChevronUp, Layers, Power, CheckSquare, Square, Clock, BarChart3 } from 'lucide-react';
 
 interface AdminLinksViewProps {
   onOpenQR: (slug: string, dest: string) => void;
   onOpenBotInspector: (slug: string) => void;
+  onOpenAnalytics?: (link: LinkItem) => void;
   siteDomain?: string;
 }
 
 export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
   onOpenQR,
   onOpenBotInspector,
+  onOpenAnalytics,
   siteDomain = typeof window !== 'undefined' ? window.location.origin : ''
 }) => {
   const [links, setLinks] = useState<LinkItem[]>([]);
@@ -414,6 +416,13 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
                       </td>
 
                       <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                        <button
+                          onClick={() => onOpenAnalytics && onOpenAnalytics(link)}
+                          className="px-2 py-1 bg-indigo-900/50 hover:bg-indigo-800/70 text-indigo-300 rounded text-[11px] font-medium inline-flex items-center gap-1 border border-indigo-700/50"
+                          title="Xem phân tích chi tiết lượt click, vị trí, thiết bị"
+                        >
+                          <BarChart3 className="w-3 h-3 text-indigo-400" /> Thống kê
+                        </button>
                         <button
                           onClick={() => startEdit(link)}
                           className="px-2 py-1 bg-purple-900/40 hover:bg-purple-800/60 text-purple-300 rounded text-[11px] font-medium inline-flex items-center gap-1 border border-purple-700/40"

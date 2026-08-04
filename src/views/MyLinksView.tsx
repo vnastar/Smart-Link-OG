@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { User, LinkItem } from '../types.js';
-import { List, Search, Copy, Check, QrCode, Bot, Trash2, Edit3, ExternalLink, ArrowUpDown, ChevronLeft, ChevronRight, X, Save, Upload, Calendar, Sliders, ChevronDown, ChevronUp } from 'lucide-react';
+import { List, Search, Copy, Check, QrCode, Bot, Trash2, Edit3, ExternalLink, ArrowUpDown, ChevronLeft, ChevronRight, X, Save, Upload, Calendar, Sliders, ChevronDown, ChevronUp, BarChart3 } from 'lucide-react';
 
 interface MyLinksViewProps {
   user: User;
   onOpenQR: (slug: string, dest: string) => void;
   onOpenBotInspector: (slug: string) => void;
+  onOpenAnalytics?: (link: LinkItem) => void;
   siteDomain?: string;
 }
 
@@ -14,6 +15,7 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
   user,
   onOpenQR,
   onOpenBotInspector,
+  onOpenAnalytics,
   siteDomain = typeof window !== 'undefined' ? window.location.origin : ''
 }) => {
   const [links, setLinks] = useState<LinkItem[]>([]);
@@ -306,7 +308,14 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
                       )}
                     </td>
 
-                    <td className="p-3 text-right space-x-1">
+                    <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                      <button
+                        onClick={() => onOpenAnalytics && onOpenAnalytics(link)}
+                        className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md text-[11px] font-semibold inline-flex items-center gap-1 border border-indigo-200"
+                        title="Xem phân tích chi tiết lượt click, vị trí, thiết bị"
+                      >
+                        <BarChart3 className="w-3 h-3 text-indigo-600" /> Thống kê
+                      </button>
                       <button
                         onClick={() => onOpenBotInspector(link.slug)}
                         className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[11px] font-medium inline-flex items-center gap-1 border border-slate-200"

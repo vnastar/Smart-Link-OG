@@ -105,6 +105,18 @@ export interface RegionStat {
   color?: string;
 }
 
+export interface LinkAnalyticsStat {
+  link_id: string;
+  slug: string;
+  title: string;
+  total_clicks: number;
+  human_clicks: number;
+  bot_clicks: number;
+  top_region?: string;
+  top_device?: string;
+  top_channel?: string;
+}
+
 export interface AnalyticsData {
   total_clicks: number;
   human_clicks: number;
@@ -116,6 +128,8 @@ export interface AnalyticsData {
   referrers: DistributionStat[];
   browsers: DistributionStat[];
   hourly_trend: { hour: string; human: number; bot: number }[];
+  recent_visits?: VisitLog[];
+  links_breakdown?: LinkAnalyticsStat[];
 }
 
 export interface BotSimulationResult {

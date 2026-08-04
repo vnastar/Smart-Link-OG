@@ -19,7 +19,7 @@ export const ClickAnalyticsCard: React.FC<ClickAnalyticsCardProps> = ({ isAdmin 
   
   const [selectedLink, setSelectedLink] = useState<string>('all');
   const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'region' | 'channel' | 'device' | 'browser'>('region');
+  const [activeTab, setActiveTab] = useState<'region' | 'links' | 'channel' | 'device' | 'browser' | 'logs'>('region');
 
   const fetchAnalytics = async () => {
     setLoading(true);
@@ -207,9 +207,11 @@ export const ClickAnalyticsCard: React.FC<ClickAnalyticsCardProps> = ({ isAdmin 
             <div className="flex gap-2 min-w-max">
               {[
                 { id: 'region', label: 'Tỷ Lệ Vùng Miền', icon: MapPin },
+                { id: 'links', label: 'Xếp Hạng Từng Link', icon: Layers },
                 { id: 'channel', label: 'Kênh Nguồn Traffic', icon: Share2 },
                 { id: 'device', label: 'Phân Loại Thiết Bị', icon: Smartphone },
-                { id: 'browser', label: 'Trình Duyệt & App', icon: Globe }
+                { id: 'browser', label: 'Trình Duyệt & App', icon: Globe },
+                { id: 'logs', label: 'Nhật Ký Click Mới Nhất', icon: Clock }
               ].map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -381,6 +383,142 @@ export const ClickAnalyticsCard: React.FC<ClickAnalyticsCardProps> = ({ isAdmin 
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Tab 5: Links Breakdown & Ranking */}
+          {activeTab === 'links' && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
+                <span>Thống kê hiệu suất click từng link trong khoảng thời gian đã chọn:</span>
+                <span>Sắp xếp theo Lượt Click</span>
+              </div>
+
+              {!data.links_breakdown || data.links_breakdown.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 text-xs">
+                  Chưa ghi nhận dữ liệu click theo link nào.
+                </div>
+              ) : (
+                <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs text-slate-700">
+                      <thead className="bg-slate-50 border-b border-slate-200 font-bold text-slate-600 uppercase tracking-wider text-[10px]">
+                        <tr>
+                          <th className="px-3.5 py-2.5">Link / Slug</th>
+                          <th className="px-3.5 py-2.5">Tổng Click</th>
+                          <th className="px-3.5 py-2.5">Người dùng (%)</th>
+                          <th className="px-3.5 py-2.5">Bot Preview</th>
+                          <th className="px-3.5 py-2.5">Vị trí Top 1</th>
+                          <th className="px-3.5 py-2.5">Thiết bị Top 1</th>
+                          <th className="px-3.5 py-2.5">Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-sans text-xs">
+                        {data.links_breakdown.map((l) => (
+                          <tr key={l.link_id} className="hover:bg-slate-50 transition">
+                            <td className="px-3.5 py-2.5 font-medium text-slate-900 max-w-[200px]">
+                              <div className="font-mono text-indigo-600 font-bold">/{l.slug}</div>
+                              <div className="text-[11px] text-slate-500 truncate">{l.title || l.slug}</div>
+                            </td>
+                            <td className="px-3.5 py-2.5 font-bold text-slate-900">
+                              {l.total_clicks}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-emerald-700 font-semibold">
+                              {l.human_clicks} ({l.total_clicks > 0 ? Math.round((l.human_clicks / l.total_clicks) * 100) : 0}%)
+                            </td>
+                            <td className="px-3.5 py-2.5 text-amber-700 font-semibold">
+                              {l.bot_clicks}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-slate-600">
+                              {l.top_region || 'Chưa có'}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-slate-600">
+                              {l.top_device || 'Chưa có'}
+                            </td>
+                            <td className="px-3.5 py-2.5">
+                              <button
+                                onClick={() => setSelectedLink(l.link_id)}
+                                className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold rounded-lg transition"
+                              >
+                                Lọc link này
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tab 6: Recent Visit Logs Table */}
+          {activeTab === 'logs' && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
+                <span>Nhật ký 30 lượt truy cập mới nhất:</span>
+                <span>Thời gian thực</span>
+              </div>
+
+              {!data.recent_visits || data.recent_visits.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 text-xs">
+                  Chưa ghi nhận lượt click nào.
+                </div>
+              ) : (
+                <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs text-slate-700">
+                      <thead className="bg-slate-50 border-b border-slate-200 font-bold text-slate-600 uppercase tracking-wider text-[10px]">
+                        <tr>
+                          <th className="px-3 py-2.5">Thời gian</th>
+                          <th className="px-3 py-2.5">Link Slug</th>
+                          <th className="px-3 py-2.5">Đối tượng</th>
+                          <th className="px-3 py-2.5">Vị trí</th>
+                          <th className="px-3 py-2.5">Thiết bị / App</th>
+                          <th className="px-3 py-2.5">Nguồn Referrer</th>
+                          <th className="px-3 py-2.5">IP</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                        {data.recent_visits.map((log) => (
+                          <tr key={log.id} className="hover:bg-slate-50/80 transition">
+                            <td className="px-3 py-2 text-slate-500 whitespace-nowrap">
+                              {new Date(log.created_at).toLocaleString('vi-VN')}
+                            </td>
+                            <td className="px-3 py-2 text-indigo-600 font-bold whitespace-nowrap">
+                              /{log.slug}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              {log.is_bot ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold font-sans">
+                                  <Bot className="w-3 h-3" /> Bot
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold font-sans font-sans">
+                                  Người dùng
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 font-sans font-semibold text-slate-800 whitespace-nowrap">
+                              {log.country || 'TP. Hồ Chí Minh'}
+                            </td>
+                            <td className="px-3 py-2 font-sans text-slate-700 whitespace-nowrap">
+                              {log.device} ({log.browser})
+                            </td>
+                            <td className="px-3 py-2 font-sans text-slate-600 whitespace-nowrap max-w-[140px] truncate">
+                              {log.referer || 'Direct'}
+                            </td>
+                            <td className="px-3 py-2 text-slate-400 whitespace-nowrap">
+                              {log.ip}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

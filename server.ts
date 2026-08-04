@@ -458,6 +458,89 @@ function computeAnalyticsData(visits: VisitLog[], filterLinkId?: string, filterP
     bot: data.bot
   }));
 
+  // 6. Links Breakdown
+  const linkStatsMap: Record<string, {
+    link_id: string;
+    slug: string;
+    total: number;
+    human: number;
+    bot: number;
+    regions: Record<string, number>;
+    devices: Record<string, number>;
+    channels: Record<string, number>;
+  }> = {};
+
+  filtered.forEach(v => {
+    const key = v.link_id || v.slug;
+    if (!linkStatsMap[key]) {
+      linkStatsMap[key] = {
+        link_id: v.link_id,
+        slug: v.slug,
+        total: 0,
+        human: 0,
+        bot: 0,
+        regions: {},
+        devices: {},
+        channels: {}
+      };
+    }
+    const item = linkStatsMap[key];
+    item.total += 1;
+    if (v.is_bot) item.bot += 1;
+    else item.human += 1;
+
+    const r = v.country || 'TP. Hồ Chí Minh';
+    item.regions[r] = (item.regions[r] || 0) + 1;
+
+    let d = v.device || 'Desktop';
+    if (d === 'Mobile') d = 'Mobile (Smartphone)';
+    else if (d === 'Desktop') d = 'Desktop (Máy tính)';
+    else if (d === 'Tablet') d = 'Tablet (Máy tính bảng)';
+    else if (d === 'Bot') d = 'Bot Preview';
+    item.devices[d] = (item.devices[d] || 0) + 1;
+
+    let ref = v.referer || 'Direct';
+    let cleanRef = 'Direct / Trực tiếp';
+    const lowerRef = ref.toLowerCase();
+    if (lowerRef.includes('facebook') || lowerRef.includes('fb.')) cleanRef = 'Facebook';
+    else if (lowerRef.includes('zalo')) cleanRef = 'Zalo';
+    else if (lowerRef.includes('google')) cleanRef = 'Google Search';
+    else if (lowerRef.includes('tiktok')) cleanRef = 'TikTok';
+    else if (lowerRef.includes('telegram') || lowerRef.includes('t.me')) cleanRef = 'Telegram';
+    else if (lowerRef.includes('instagram')) cleanRef = 'Instagram';
+    else if (ref !== 'Direct' && ref !== '') cleanRef = 'Website Khác';
+    item.channels[cleanRef] = (item.channels[cleanRef] || 0) + 1;
+  });
+
+  const allDbLinks = db.getLinks();
+  const linkDbMap = new Map(allDbLinks.map(l => [l.id, l]));
+  const slugDbMap = new Map(allDbLinks.map(l => [l.slug, l]));
+
+  const links_breakdown = Object.values(linkStatsMap).map(item => {
+    const linkObj = linkDbMap.get(item.link_id) || slugDbMap.get(item.slug);
+    const getTopKey = (map: Record<string, number>) => {
+      const entries = Object.entries(map);
+      if (entries.length === 0) return 'Chưa có';
+      entries.sort((a, b) => b[1] - a[1]);
+      return entries[0][0];
+    };
+
+    return {
+      link_id: item.link_id || (linkObj ? linkObj.id : item.slug),
+      slug: item.slug,
+      title: linkObj ? linkObj.title : item.slug,
+      total_clicks: item.total,
+      human_clicks: item.human,
+      bot_clicks: item.bot,
+      top_region: getTopKey(item.regions),
+      top_device: getTopKey(item.devices),
+      top_channel: getTopKey(item.channels)
+    };
+  }).sort((a, b) => b.total_clicks - a.total_clicks);
+
+  // 7. Recent visit logs (30 lượt click mới nhất)
+  const recent_visits = filtered.slice(0, 30);
+
   return {
     total_clicks: total,
     human_clicks: humanCount,
@@ -468,7 +551,9 @@ function computeAnalyticsData(visits: VisitLog[], filterLinkId?: string, filterP
     devices,
     referrers,
     browsers,
-    hourly_trend
+    hourly_trend,
+    links_breakdown,
+    recent_visits
   };
 }
 
@@ -729,9 +814,8 @@ app.post('/api/upload', requireAuth, (req: Request, res: Response) => {
     const targetPath = path.join(uploadsDir, uniqueName);
 
     fs.writeFileSync(targetPath, buffer);
-    const domain = settings.site_domain || `${req.protocol}://${req.get('host')}`;
-    const cleanDomain = domain.replace(/\/$/, '');
-    const publicUrl = `${cleanDomain}/uploads/${uniqueName}`;
+    const siteDomain = getRequestSiteDomain(req);
+    const publicUrl = `${siteDomain}/uploads/${uniqueName}`;
 
     return res.json({ url: publicUrl });
   } catch (err) {
@@ -765,7 +849,8 @@ app.post('/api/simulate-bot', (req: Request, res: Response) => {
       siteName: settings.site_name,
       ogType: link.og_type,
       ogUrl: link.og_url,
-      ogSiteName: link.og_site_name
+      ogSiteName: link.og_site_name,
+      siteDomain
     });
     return res.json({
       is_bot: true,
@@ -1280,7 +1365,8 @@ app.get('/:slug', (req: Request, res: Response, next: NextFunction) => {
       siteName: settings.site_name,
       ogType: link.og_type,
       ogUrl: link.og_url,
-      ogSiteName: link.og_site_name
+      ogSiteName: link.og_site_name,
+      siteDomain
     });
     return res.status(200).set('Content-Type', 'text/html; charset=utf-8').send(html);
   }
