@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { User, LinkItem } from '../types.js';
 import { List, Search, Copy, Check, QrCode, Bot, Trash2, Edit3, ExternalLink, ArrowUpDown, ChevronLeft, ChevronRight, X, Save, Upload, Calendar, Sliders, ChevronDown, ChevronUp, BarChart3 } from 'lucide-react';
+import { OGPreviewCard } from '../components/OGPreviewCard.js';
 
 interface MyLinksViewProps {
   user: User;
@@ -735,6 +736,20 @@ export const MyLinksView: React.FC<MyLinksViewProps> = ({
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Live OG Social Card Preview inside Edit Link Modal */}
+              <div className="pt-2">
+                <OGPreviewCard
+                  title={editTitle}
+                  description={editDesc}
+                  image={editImage}
+                  domain={siteDomain}
+                  slug={editingLink.slug}
+                  ogUrl={editOgUrl}
+                  ogType={editOgType}
+                  ogSiteName={editOgSiteName}
+                />
               </div>
             </div>
 

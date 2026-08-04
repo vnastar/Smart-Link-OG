@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { LinkItem } from '../types.js';
 import { Link as LinkIcon, Search, Copy, Check, QrCode, Bot, Trash2, Edit3, ExternalLink, Calendar, Upload, X, Save, Sliders, ChevronDown, ChevronUp, Layers, Power, CheckSquare, Square, Clock, BarChart3 } from 'lucide-react';
+import { OGPreviewCard } from '../components/OGPreviewCard.js';
 
 interface AdminLinksViewProps {
   onOpenQR: (slug: string, dest: string) => void;
@@ -836,6 +837,20 @@ export const AdminLinksView: React.FC<AdminLinksViewProps> = ({
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Live OG Social Card Preview inside Edit Link Modal */}
+              <div className="pt-2">
+                <OGPreviewCard
+                  title={editTitle}
+                  description={editDesc}
+                  image={editImage}
+                  domain={siteDomain}
+                  slug={editingLink.slug}
+                  ogUrl={editOgUrl}
+                  ogType={editOgType}
+                  ogSiteName={editOgSiteName}
+                />
               </div>
             </div>
 
