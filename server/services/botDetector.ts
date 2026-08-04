@@ -64,6 +64,7 @@ export class BotDetector {
   private static detectMimeType(imageUrl: string): string {
     if (!imageUrl) return 'image/jpeg';
     const lower = imageUrl.toLowerCase();
+    if (lower.includes('/api/og-image')) return 'image/jpeg';
     if (lower.endsWith('.png')) return 'image/png';
     if (lower.endsWith('.webp')) return 'image/webp';
     if (lower.endsWith('.gif')) return 'image/gif';
@@ -192,13 +193,35 @@ export class BotDetector {
     // Full URL http(s)://...
     if (img.startsWith('http://') || img.startsWith('https://')) {
       const uploadsIndex = img.indexOf('/uploads/');
+      const proxyIndex = img.indexOf('/api/og-image');
+
       if (uploadsIndex !== -1 && cleanDomain) {
         const pathAfterUploads = img.substring(uploadsIndex);
         finalUrl = `${cleanDomain}${pathAfterUploads}`;
+      } else if (proxyIndex !== -1 && cleanDomain) {
+        const pathAfterProxy = img.substring(proxyIndex);
+        finalUrl = `${cleanDomain}${pathAfterProxy}`;
       } else {
-        finalUrl = img;
-        if (finalUrl.startsWith('http://') && !finalUrl.includes('localhost') && !finalUrl.includes('127.0.0.1')) {
-          finalUrl = finalUrl.replace('http://', 'https://');
+        // If it's an external URL on another domain, route through our image proxy optimizer /api/og-image
+        let isOwnDomain = false;
+        try {
+          if (cleanDomain) {
+            const hostClean = new URL(cleanDomain).host;
+            const hostImg = new URL(img).host;
+            if (hostClean === hostImg) isOwnDomain = true;
+          }
+        } catch {
+          // ignore
+        }
+
+        if (isOwnDomain) {
+          finalUrl = img;
+        } else {
+          // External URL -> route through our image proxy optimizer for instant bot preview
+          finalUrl = cleanDomain 
+            ? `${cleanDomain}/api/og-image?url=${encodeURIComponent(img)}`
+            : `/api/og-image?url=${encodeURIComponent(img)}`;
+          return finalUrl;
         }
       }
     }

@@ -6,6 +6,7 @@ import { createServer as createViteServer } from 'vite';
 import { db } from './server/db.js';
 import { mysqlService } from './server/mysql.js';
 import { BotDetector } from './server/services/botDetector.js';
+import { ImageOptimizer } from './server/services/imageOptimizer.js';
 import { VisitLog } from './src/types.js';
 
 const app = express();
@@ -808,6 +809,13 @@ app.post('/api/links', requireAuth, (req: Request, res: Response) => {
 
   db.addLog(user.id, 'CREATE_LINK', `Tạo link mới: /${slug}`, req.ip || '127.0.0.1');
 
+  // Background pre-cache external image for instant bot preview
+  if (newLink.image && newLink.image.startsWith('http')) {
+    ImageOptimizer.processExternalImage(newLink.image).catch(err => {
+      console.warn('Background image pre-cache failed:', err);
+    });
+  }
+
   return res.status(201).json({ link: newLink });
 });
 
@@ -858,6 +866,13 @@ app.put('/api/links/:id', requireAuth, (req: Request, res: Response) => {
 
   db.addLog(user.id, 'UPDATE_LINK', `Cập nhật link: /${existing.slug}`, req.ip || '127.0.0.1');
 
+  // Background pre-cache external image for instant bot preview
+  if (updated && updated.image && updated.image.startsWith('http')) {
+    ImageOptimizer.processExternalImage(updated.image).catch(err => {
+      console.warn('Background image pre-cache failed:', err);
+    });
+  }
+
   return res.json({ link: updated });
 });
 
@@ -880,8 +895,8 @@ app.delete('/api/links/:id', requireAuth, (req: Request, res: Response) => {
   return res.json({ message: 'Xóa link thành công' });
 });
 
-// File upload endpoint (Module 5)
-app.post('/api/upload', requireAuth, (req: Request, res: Response) => {
+// File upload endpoint (Module 5) with Automatic Image Optimization for Bots
+app.post('/api/upload', requireAuth, async (req: Request, res: Response) => {
   const user = (req as any).user;
   const settings = db.getSettings();
   if (user?.role !== 'admin' && !settings.upload_enable) {
@@ -895,29 +910,34 @@ app.post('/api/upload', requireAuth, (req: Request, res: Response) => {
 
   try {
     const base64Data = image_base64.replace(/^data:image\/\w+;base64,/, '').replace(/^data:image\/x-icon;base64,/, '').replace(/^data:image\/vnd\.microsoft\.icon;base64,/, '').replace(/^data:image\/svg\+xml;base64,/, '');
-    const buffer = Buffer.from(base64Data, 'base64');
+    const rawBuffer = Buffer.from(base64Data, 'base64');
 
-    if (buffer.length > 5 * 1024 * 1024) {
-      return res.status(400).json({ error: 'Kích thước file vượt quá giới hạn 5MB' });
+    if (rawBuffer.length > 10 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Kích thước file vượt quá giới hạn 10MB' });
     }
 
-    let ext = 'webp';
+    let detectedExt = 'jpg';
     if (image_base64.startsWith('data:image/x-icon') || image_base64.startsWith('data:image/vnd.microsoft.icon') || (file_name && file_name.endsWith('.ico'))) {
-      ext = 'ico';
+      detectedExt = 'ico';
     } else if (image_base64.startsWith('data:image/png')) {
-      ext = 'png';
+      detectedExt = 'png';
     } else if (image_base64.startsWith('data:image/svg+xml')) {
-      ext = 'svg';
+      detectedExt = 'svg';
     } else if (image_base64.startsWith('data:image/jpeg') || image_base64.startsWith('data:image/jpg')) {
-      ext = 'jpg';
+      detectedExt = 'jpg';
     } else if (image_base64.startsWith('data:image/gif')) {
-      ext = 'gif';
+      detectedExt = 'gif';
+    } else if (image_base64.startsWith('data:image/webp')) {
+      detectedExt = 'webp';
     }
 
-    const uniqueName = `img_${Date.now()}_${Math.random().toString(36).substr(2, 6)}.${ext}`;
+    // Automatically optimize buffer: resize to max 1200x630 & compress for bot preview
+    const optimized = await ImageOptimizer.optimizeBuffer(rawBuffer, detectedExt);
+
+    const uniqueName = `img_${Date.now()}_${Math.random().toString(36).substr(2, 6)}.${optimized.ext}`;
     const targetPath = path.join(uploadsDir, uniqueName);
 
-    fs.writeFileSync(targetPath, buffer);
+    fs.writeFileSync(targetPath, optimized.buffer);
     const siteDomain = getRequestSiteDomain(req);
     const publicUrl = `${siteDomain}/uploads/${uniqueName}`;
 
@@ -925,6 +945,46 @@ app.post('/api/upload', requireAuth, (req: Request, res: Response) => {
   } catch (err) {
     console.error('Upload error:', err);
     return res.status(500).json({ error: 'Lỗi lưu trữ file ảnh' });
+  }
+});
+
+// -------------------------------------------------------------
+// OPENGRAPH IMAGE PROXY & OPTIMIZER ENDPOINT FOR EXTERNAL IMAGES
+// -------------------------------------------------------------
+app.get('/api/og-image', async (req: Request, res: Response) => {
+  const imageUrl = req.query.url as string;
+  if (!imageUrl) {
+    return res.status(400).send('Missing url parameter');
+  }
+
+  try {
+    const siteDomain = getRequestSiteDomain(req);
+    // If it's a local upload URL
+    if (imageUrl.startsWith('/uploads/') || imageUrl.startsWith(`${siteDomain}/uploads/`)) {
+      const filename = imageUrl.split('/uploads/').pop() || '';
+      const localPath = path.join(uploadsDir, filename);
+      if (fs.existsSync(localPath)) {
+        res.setHeader('Content-Type', filename.endsWith('.png') ? 'image/png' : 'image/jpeg');
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        return res.sendFile(localPath);
+      }
+    }
+
+    // Process & cache external image to 1200x630 JPEG
+    const result = await ImageOptimizer.processExternalImage(imageUrl);
+    if (result && fs.existsSync(result.filePath)) {
+      res.setHeader('Content-Type', result.contentType);
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.sendFile(result.filePath);
+    }
+
+    // Fallback: 302 Redirect to raw image URL if proxy/fetch fails
+    return res.redirect(302, imageUrl);
+  } catch (err) {
+    console.error('Error in /api/og-image:', err);
+    return res.redirect(302, imageUrl);
   }
 });
 
