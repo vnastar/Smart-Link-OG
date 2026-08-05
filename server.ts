@@ -1731,7 +1731,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     reqPath.startsWith('/src') ||
     reqPath === '/favicon.ico' ||
     reqPath === '/robots.txt' ||
-    reqPath.toLowerCase() === customLoginNormalized.toLowerCase()
+    reqPath.toLowerCase().replace(/\/$/, '') === customLoginNormalized.toLowerCase().replace(/\/$/, '')
   ) {
     return next();
   }

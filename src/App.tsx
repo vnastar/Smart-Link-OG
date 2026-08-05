@@ -71,39 +71,74 @@ export default function App() {
 
   // Fetch initial session & public config
   useEffect(() => {
-    api.getPublicConfig()
-      .then(cfg => {
-        const loginPath = cfg.custom_login_path || '/login';
+    async function init() {
+      let loginPath = '/login';
+      let isPrivate = false;
+      let siteName = 'Smart Link OG';
+      let siteDomain = typeof window !== 'undefined' ? window.location.origin : '';
+
+      try {
+        const cfg = await api.getPublicConfig();
+        loginPath = cfg.custom_login_path || '/login';
+        if (!loginPath.startsWith('/')) loginPath = '/' + loginPath;
+        isPrivate = Boolean(cfg.private_mode_enable);
+        siteName = cfg.site_name || siteName;
+        siteDomain = cfg.site_domain || siteDomain;
+
         setSiteConfig({
-          site_name: cfg.site_name || 'Smart Link OG',
-          site_domain: cfg.site_domain || (typeof window !== 'undefined' ? window.location.origin : ''),
-          private_mode_enable: Boolean(cfg.private_mode_enable),
+          site_name: siteName,
+          site_domain: siteDomain,
+          private_mode_enable: isPrivate,
           custom_login_path: loginPath
         });
-      })
-      .catch(console.error);
+      } catch (err) {
+        console.error('Failed to load public config:', err);
+      }
 
-    const token = api.getToken();
-    if (token) {
-      api.getMe()
-        .then(u => {
+      const rawPath = typeof window !== 'undefined' ? window.location.pathname : '/manager';
+      const token = api.getToken();
+
+      if (token) {
+        try {
+          const u = await api.getMe();
           setUser(u);
           if (u.must_change_password) {
             setCurrentPath('/dashboard/password');
-          } else if (currentPath === '/login' || currentPath === siteConfig.custom_login_path || currentPath === '/register' || currentPath === '/') {
+          } else if (
+            rawPath === '/' ||
+            rawPath === '/login' ||
+            rawPath.toLowerCase() === loginPath.toLowerCase() ||
+            rawPath === '/register'
+          ) {
+            if (typeof window !== 'undefined' && window.history.replaceState) {
+              window.history.replaceState({}, '', '/manager');
+            }
             setCurrentPath('/manager');
+          } else {
+            setCurrentPath(rawPath);
           }
-        })
-        .catch(() => {
+        } catch {
           api.clearToken();
           setUser(null);
-          setCurrentPath(siteConfig.custom_login_path || '/login');
-        })
-        .finally(() => setLoadingUser(false));
-    } else {
+          if (rawPath === '/' || rawPath === '/login') {
+            setCurrentPath(loginPath);
+          } else {
+            setCurrentPath(rawPath);
+          }
+        }
+      } else {
+        setUser(null);
+        if (rawPath === '/' || (rawPath === '/login' && loginPath.toLowerCase() !== '/login')) {
+          setCurrentPath(loginPath);
+        } else {
+          setCurrentPath(rawPath);
+        }
+      }
+
       setLoadingUser(false);
-      setCurrentPath(siteConfig.custom_login_path || '/login');
     }
+
+    init();
   }, []);
 
   const handleLoginSuccess = (u: User) => {
