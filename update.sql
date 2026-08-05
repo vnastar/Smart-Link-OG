@@ -161,12 +161,18 @@ CALL SafeAddColumn('settings', 'max_expiration_days', 'INT DEFAULT 0');
 CALL SafeAddColumn('settings', 'private_mode_enable', 'TINYINT(1) DEFAULT 0');
 CALL SafeAddColumn('settings', 'custom_login_path', "VARCHAR(255) DEFAULT '/login'");
 
--- Cập nhật cột bổ sung cho bảng users (nếu thiếu cột hạn sử dụng link mặc định)
+-- Cập nhật cột bổ sung cho bảng users (nếu thiếu cột ở các bản nâng cấp trước)
+CALL SafeAddColumn('users', 'must_change_password', 'TINYINT(1) NOT NULL DEFAULT 0');
 CALL SafeAddColumn('users', 'default_expiration_days', 'INT DEFAULT 0');
 CALL SafeAddColumn('users', 'allow_unlimited_expiration', 'TINYINT(1) DEFAULT 1');
 CALL SafeAddColumn('users', 'max_expiration_days', 'INT DEFAULT 0');
 
--- Cập nhật cột bổ sung cho bảng links (nếu thiếu cột ngày hết hạn)
+-- Cập nhật cột bổ sung cho bảng links (nếu thiếu cột ở các bản nâng cấp trước)
+CALL SafeAddColumn('links', 'user_name', "VARCHAR(100) DEFAULT ''");
+CALL SafeAddColumn('links', 'og_url', 'TEXT');
+CALL SafeAddColumn('links', 'og_type', "VARCHAR(50) DEFAULT 'website'");
+CALL SafeAddColumn('links', 'og_site_name', "VARCHAR(100) DEFAULT ''");
+CALL SafeAddColumn('links', 'redirect_code', 'INT NOT NULL DEFAULT 302');
 CALL SafeAddColumn('links', 'expires_at', 'DATETIME DEFAULT NULL');
 
 -- Xóa Stored Procedure sau khi hoàn tất cập nhật
