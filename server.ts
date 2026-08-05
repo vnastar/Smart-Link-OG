@@ -1707,6 +1707,85 @@ app.get('/api/public-settings', (req: Request, res: Response) => {
 });
 
 // -------------------------------------------------------------
+// PRIVATE MODE & STEALTH ROUTE MIDDLEWARE
+// -------------------------------------------------------------
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const settings = db.getSettings();
+  if (!settings.private_mode_enable) {
+    return next();
+  }
+
+  // Paths exempt from Private Mode protection:
+  // - API endpoints
+  // - Uploaded images/assets
+  // - The custom login URL (and default /login)
+  // - /login if logged in or navigating
+  const reqPath = req.path;
+  const customLoginPath = settings.custom_login_path || '/login';
+  const customLoginNormalized = customLoginPath.startsWith('/') ? customLoginPath : `/${customLoginPath}`;
+
+  if (
+    reqPath.startsWith('/api') ||
+    reqPath.startsWith('/uploads') ||
+    reqPath.startsWith('/assets') ||
+    reqPath.startsWith('/src') ||
+    reqPath === '/favicon.ico' ||
+    reqPath === '/robots.txt' ||
+    reqPath === customLoginNormalized ||
+    reqPath === '/login'
+  ) {
+    return next();
+  }
+
+  // Check if request is for a short link /:[slug]
+  // If slug exists in database, let it pass to short link router (and bots / redirects)
+  const potentialSlug = reqPath.replace(/^\//, '').split('/')[0];
+  if (potentialSlug) {
+    const link = db.getLinkBySlug(potentialSlug);
+    if (link) {
+      return next();
+    }
+  }
+
+  // Check if request is authenticated (Cookie token, Bearer header, or active user session)
+  const user = getAuthUser(req);
+  if (user) {
+    return next();
+  }
+
+  // If Private Mode is ON and user is NOT logged in, NOT accessing login/link/assets:
+  // Block access & return 404 Not Found to obscure the existence of the site
+  if (req.accepts('html')) {
+    return res.status(404).send(`
+      <!DOCTYPE html>
+      <html lang="vi">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>404 Not Found</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #0f172a; color: #94a3b8; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; text-align: center; }
+          .container { max-width: 400px; padding: 2rem; }
+          h1 { font-size: 5rem; font-weight: 800; color: #38bdf8; margin: 0; line-height: 1; }
+          h2 { font-size: 1.25rem; font-weight: 600; color: #f8fafc; margin-top: 0.5rem; margin-bottom: 1rem; }
+          p { font-size: 0.875rem; color: #64748b; line-height: 1.5; margin-bottom: 1.5rem; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>404</h1>
+          <h2>Trang không tồn tại</h2>
+          <p>Đường dẫn bạn truy cập không tồn tại trên hệ thống hoặc đã bị di chuyển.</p>
+        </div>
+      </body>
+      </html>
+    `);
+  }
+
+  return res.status(404).json({ error: '404 Not Found' });
+});
+
+// -------------------------------------------------------------
 // PUBLIC BOT DETECT & REDIRECT MIDDLEWARE ENGINE (GET /:slug)
 // -------------------------------------------------------------
 app.get('/:slug', (req: Request, res: Response, next: NextFunction) => {

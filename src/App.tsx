@@ -164,6 +164,24 @@ export default function App() {
 
   // Auth pages (Login / Register) without sidebar
   if (!user) {
+    // If Private Mode is enabled, check if user is accessing custom login path or /login
+    const currentNorm = currentPath.toLowerCase();
+    const loginNorm = (siteConfig.custom_login_path || '/login').toLowerCase();
+
+    // If trying to access /register while Private Mode is active, redirect/render 404 or login
+    if (currentPath === '/register' && siteConfig.private_mode_enable) {
+      // In Private Mode, register page is disabled and hidden
+      return (
+        <div className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center font-sans p-4">
+          <div className="text-center max-w-sm">
+            <h1 className="text-6xl font-extrabold text-sky-400 mb-2">404</h1>
+            <h2 className="text-lg font-semibold mb-2">Trang không tồn tại</h2>
+            <p className="text-xs text-slate-400">Đường dẫn bạn truy cập không tồn tại hoặc website đang ở chế độ riêng tư.</p>
+          </div>
+        </div>
+      );
+    }
+
     if (currentPath === '/register' && !siteConfig.private_mode_enable) {
       return (
         <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
@@ -203,7 +221,7 @@ export default function App() {
               <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0" />
               <div>
                 <span className="font-bold block text-amber-800">Website đang ở Chế độ Riêng tư (Private Mode)</span>
-                <span>Truy cập trực tiếp bị hạn chế. Vui lòng đăng nhập tại <code className="font-mono bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">{siteConfig.custom_login_path || '/login'}</code> để tới trang quản lý <code className="font-mono bg-amber-100 px-1 py-0.5 rounded">/manager</code>.</span>
+                <span>Chỉ cho phép đăng nhập tại <code className="font-mono bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">{siteConfig.custom_login_path || '/login'}</code> để truy cập trang quản lý <code className="font-mono bg-amber-100 px-1 py-0.5 rounded">/manager</code>.</span>
               </div>
             </div>
           </div>
