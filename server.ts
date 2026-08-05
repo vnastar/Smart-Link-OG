@@ -1407,9 +1407,14 @@ app.get('/api/admin/backup/export', requireAdmin, (req: Request, res: Response) 
 });
 
 // Admin Image Management Endpoints
-app.get('/api/admin/images', requireAdmin, (req: Request, res: Response) => {
+app.get('/api/admin/images', requireAdmin, async (req: Request, res: Response) => {
   try {
+    if (db.isUsingMySQL) {
+      await db.reloadFromMySQL();
+    }
+
     const allLinks = db.getLinks();
+    const settings = db.getSettings();
     const filesMap = new Map<string, { filename: string; filePath: string; size: number; birthtime: Date }>();
 
     [persistentUploadsDir, publicUploadsDir].forEach(dir => {
@@ -1440,16 +1445,57 @@ app.get('/api/admin/images', requireAdmin, (req: Request, res: Response) => {
     const imagesList = Array.from(filesMap.values()).map(file => {
       const publicUrl = `${siteDomain}/uploads/${file.filename}`;
       const relativeUrl = `/uploads/${file.filename}`;
+      const lowerFn = file.filename.toLowerCase();
 
+      // Find links using this image (with URL decoding and query string stripping)
       const usedByLinks = allLinks.filter(link => {
         if (!link.image) return false;
-        return link.image.includes(file.filename);
+        try {
+          const decoded = decodeURIComponent(link.image).toLowerCase();
+          if (decoded.includes(lowerFn)) return true;
+          const cleanUrl = decoded.split('?')[0].split('#')[0];
+          const baseName = path.basename(cleanUrl);
+          if (baseName === lowerFn) return true;
+        } catch (e) {
+          if (link.image.toLowerCase().includes(lowerFn)) return true;
+        }
+        return false;
       }).map(l => ({
         id: l.id,
         slug: l.slug,
         title: l.title || l.slug,
         user_name: l.user_name || 'Anonymous'
       }));
+
+      // Check if used in system settings (Logo / Favicon)
+      if (settings) {
+        if (settings.logo) {
+          try {
+            const decodedLogo = decodeURIComponent(settings.logo).toLowerCase();
+            if (decodedLogo.includes(lowerFn) || path.basename(decodedLogo.split('?')[0]) === lowerFn) {
+              usedByLinks.push({
+                id: 'sys_logo',
+                slug: 'system/logo',
+                title: 'Logo trang web (Hệ thống)',
+                user_name: 'System Admin'
+              });
+            }
+          } catch (e) {}
+        }
+        if (settings.favicon) {
+          try {
+            const decodedFav = decodeURIComponent(settings.favicon).toLowerCase();
+            if (decodedFav.includes(lowerFn) || path.basename(decodedFav.split('?')[0]) === lowerFn) {
+              usedByLinks.push({
+                id: 'sys_favicon',
+                slug: 'system/favicon',
+                title: 'Favicon trang web (Hệ thống)',
+                user_name: 'System Admin'
+              });
+            }
+          } catch (e) {}
+        }
+      }
 
       return {
         filename: file.filename,
@@ -1512,9 +1558,14 @@ app.delete('/api/admin/images/:filename', requireAdmin, (req: Request, res: Resp
   }
 });
 
-app.post('/api/admin/images/cleanup-orphans', requireAdmin, (req: Request, res: Response) => {
+app.post('/api/admin/images/cleanup-orphans', requireAdmin, async (req: Request, res: Response) => {
   try {
+    if (db.isUsingMySQL) {
+      await db.reloadFromMySQL();
+    }
+
     const allLinks = db.getLinks();
+    const settings = db.getSettings();
     let deletedCount = 0;
     let freedSizeBytes = 0;
 
@@ -1541,8 +1592,30 @@ app.post('/api/admin/images/cleanup-orphans', requireAdmin, (req: Request, res: 
     });
 
     for (const [fn, item] of filesMap.entries()) {
-      const isUsed = allLinks.some(link => link.image && link.image.includes(fn));
-      if (!isUsed) {
+      const lowerFn = fn.toLowerCase();
+
+      // Check if used in links
+      const isUsedInLinks = allLinks.some(link => {
+        if (!link.image) return false;
+        try {
+          const decoded = decodeURIComponent(link.image).toLowerCase();
+          if (decoded.includes(lowerFn)) return true;
+          const cleanUrl = decoded.split('?')[0].split('#')[0];
+          if (path.basename(cleanUrl) === lowerFn) return true;
+        } catch (e) {
+          if (link.image.toLowerCase().includes(lowerFn)) return true;
+        }
+        return false;
+      });
+
+      // Check if used in settings (Logo / Favicon)
+      let isUsedInSettings = false;
+      if (settings) {
+        if (settings.logo && decodeURIComponent(settings.logo).toLowerCase().includes(lowerFn)) isUsedInSettings = true;
+        if (settings.favicon && decodeURIComponent(settings.favicon).toLowerCase().includes(lowerFn)) isUsedInSettings = true;
+      }
+
+      if (!isUsedInLinks && !isUsedInSettings) {
         let fileDeleted = false;
         item.filePaths.forEach(fp => {
           if (fs.existsSync(fp)) {
