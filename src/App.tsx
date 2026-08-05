@@ -31,9 +31,7 @@ export default function App() {
   const getInitialPath = () => {
     if (typeof window !== 'undefined') {
       const p = window.location.pathname;
-      if (p.startsWith('/manager')) return p;
-      if (p === '/login') return '/login';
-      if (p === '/register') return '/register';
+      return p;
     }
     return '/manager';
   };
@@ -164,22 +162,22 @@ export default function App() {
 
   // Auth pages (Login / Register) without sidebar
   if (!user) {
-    // If Private Mode is enabled, check if user is accessing custom login path or /login
     const currentNorm = currentPath.toLowerCase();
     const loginNorm = (siteConfig.custom_login_path || '/login').toLowerCase();
 
-    // If trying to access /register while Private Mode is active, redirect/render 404 or login
-    if (currentPath === '/register' && siteConfig.private_mode_enable) {
-      // In Private Mode, register page is disabled and hidden
-      return (
-        <div className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center font-sans p-4">
-          <div className="text-center max-w-sm">
-            <h1 className="text-6xl font-extrabold text-sky-400 mb-2">404</h1>
-            <h2 className="text-lg font-semibold mb-2">Trang không tồn tại</h2>
-            <p className="text-xs text-slate-400">Đường dẫn bạn truy cập không tồn tại hoặc website đang ở chế độ riêng tư.</p>
+    // If Private Mode is active, check if current path matches configured login path
+    if (siteConfig.private_mode_enable) {
+      if (currentNorm !== loginNorm && currentNorm !== `${loginNorm}/`) {
+        return (
+          <div className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center font-sans p-4">
+            <div className="text-center max-w-sm">
+              <h1 className="text-6xl font-extrabold text-sky-400 mb-2">404</h1>
+              <h2 className="text-lg font-semibold mb-2">Trang không tồn tại</h2>
+              <p className="text-xs text-slate-400">Đường dẫn bạn truy cập không tồn tại hoặc website đang ở chế độ riêng tư.</p>
+            </div>
           </div>
-        </div>
-      );
+        );
+      }
     }
 
     if (currentPath === '/register' && !siteConfig.private_mode_enable) {

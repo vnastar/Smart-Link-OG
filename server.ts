@@ -1718,8 +1718,8 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   // Paths exempt from Private Mode protection:
   // - API endpoints
   // - Uploaded images/assets
-  // - The custom login URL (and default /login)
-  // - /login if logged in or navigating
+  // - System static assets
+  // - ONLY the exact custom login URL (custom_login_path)
   const reqPath = req.path;
   const customLoginPath = settings.custom_login_path || '/login';
   const customLoginNormalized = customLoginPath.startsWith('/') ? customLoginPath : `/${customLoginPath}`;
@@ -1731,8 +1731,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     reqPath.startsWith('/src') ||
     reqPath === '/favicon.ico' ||
     reqPath === '/robots.txt' ||
-    reqPath === customLoginNormalized ||
-    reqPath === '/login'
+    reqPath.toLowerCase() === customLoginNormalized.toLowerCase()
   ) {
     return next();
   }
