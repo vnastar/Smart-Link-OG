@@ -1406,11 +1406,28 @@ app.get('/api/admin/backup/export', requireAdmin, (req: Request, res: Response) 
   return res.send(JSON.stringify(backupData, null, 2));
 });
 
+// Helper to check if an image filename matches a target URL (handles relative/absolute, decoded URI, query strings)
+function isImageUsedInUrl(filename: string, targetUrl?: string): boolean {
+  if (!targetUrl || typeof targetUrl !== 'string') return false;
+  const lowerFn = filename.toLowerCase();
+  try {
+    const decoded = decodeURIComponent(targetUrl).toLowerCase();
+    if (decoded.includes(lowerFn)) return true;
+    const cleanUrl = decoded.split('?')[0].split('#')[0];
+    if (path.basename(cleanUrl) === lowerFn) return true;
+  } catch (e) {
+    if (targetUrl.toLowerCase().includes(lowerFn)) return true;
+  }
+  return false;
+}
+
 // Admin Image Management Endpoints
 app.get('/api/admin/images', requireAdmin, async (req: Request, res: Response) => {
   try {
     if (db.isUsingMySQL) {
       await db.reloadFromMySQL();
+    } else {
+      db.reloadLocal();
     }
 
     const allLinks = db.getLinks();
@@ -1445,21 +1462,10 @@ app.get('/api/admin/images', requireAdmin, async (req: Request, res: Response) =
     const imagesList = Array.from(filesMap.values()).map(file => {
       const publicUrl = `${siteDomain}/uploads/${file.filename}`;
       const relativeUrl = `/uploads/${file.filename}`;
-      const lowerFn = file.filename.toLowerCase();
 
       // Find links using this image (with URL decoding and query string stripping)
       const usedByLinks = allLinks.filter(link => {
-        if (!link.image) return false;
-        try {
-          const decoded = decodeURIComponent(link.image).toLowerCase();
-          if (decoded.includes(lowerFn)) return true;
-          const cleanUrl = decoded.split('?')[0].split('#')[0];
-          const baseName = path.basename(cleanUrl);
-          if (baseName === lowerFn) return true;
-        } catch (e) {
-          if (link.image.toLowerCase().includes(lowerFn)) return true;
-        }
-        return false;
+        return isImageUsedInUrl(file.filename, link.image);
       }).map(l => ({
         id: l.id,
         slug: l.slug,
@@ -1469,31 +1475,21 @@ app.get('/api/admin/images', requireAdmin, async (req: Request, res: Response) =
 
       // Check if used in system settings (Logo / Favicon)
       if (settings) {
-        if (settings.logo) {
-          try {
-            const decodedLogo = decodeURIComponent(settings.logo).toLowerCase();
-            if (decodedLogo.includes(lowerFn) || path.basename(decodedLogo.split('?')[0]) === lowerFn) {
-              usedByLinks.push({
-                id: 'sys_logo',
-                slug: 'system/logo',
-                title: 'Logo trang web (Hệ thống)',
-                user_name: 'System Admin'
-              });
-            }
-          } catch (e) {}
+        if (settings.logo && isImageUsedInUrl(file.filename, settings.logo)) {
+          usedByLinks.push({
+            id: 'sys_logo',
+            slug: 'system/logo',
+            title: 'Logo trang web (Hệ thống)',
+            user_name: 'System Admin'
+          });
         }
-        if (settings.favicon) {
-          try {
-            const decodedFav = decodeURIComponent(settings.favicon).toLowerCase();
-            if (decodedFav.includes(lowerFn) || path.basename(decodedFav.split('?')[0]) === lowerFn) {
-              usedByLinks.push({
-                id: 'sys_favicon',
-                slug: 'system/favicon',
-                title: 'Favicon trang web (Hệ thống)',
-                user_name: 'System Admin'
-              });
-            }
-          } catch (e) {}
+        if (settings.favicon && isImageUsedInUrl(file.filename, settings.favicon)) {
+          usedByLinks.push({
+            id: 'sys_favicon',
+            slug: 'system/favicon',
+            title: 'Favicon trang web (Hệ thống)',
+            user_name: 'System Admin'
+          });
         }
       }
 
@@ -1562,6 +1558,8 @@ app.post('/api/admin/images/cleanup-orphans', requireAdmin, async (req: Request,
   try {
     if (db.isUsingMySQL) {
       await db.reloadFromMySQL();
+    } else {
+      db.reloadLocal();
     }
 
     const allLinks = db.getLinks();
@@ -1592,27 +1590,14 @@ app.post('/api/admin/images/cleanup-orphans', requireAdmin, async (req: Request,
     });
 
     for (const [fn, item] of filesMap.entries()) {
-      const lowerFn = fn.toLowerCase();
-
       // Check if used in links
-      const isUsedInLinks = allLinks.some(link => {
-        if (!link.image) return false;
-        try {
-          const decoded = decodeURIComponent(link.image).toLowerCase();
-          if (decoded.includes(lowerFn)) return true;
-          const cleanUrl = decoded.split('?')[0].split('#')[0];
-          if (path.basename(cleanUrl) === lowerFn) return true;
-        } catch (e) {
-          if (link.image.toLowerCase().includes(lowerFn)) return true;
-        }
-        return false;
-      });
+      const isUsedInLinks = allLinks.some(link => isImageUsedInUrl(fn, link.image));
 
       // Check if used in settings (Logo / Favicon)
       let isUsedInSettings = false;
       if (settings) {
-        if (settings.logo && decodeURIComponent(settings.logo).toLowerCase().includes(lowerFn)) isUsedInSettings = true;
-        if (settings.favicon && decodeURIComponent(settings.favicon).toLowerCase().includes(lowerFn)) isUsedInSettings = true;
+        if (settings.logo && isImageUsedInUrl(fn, settings.logo)) isUsedInSettings = true;
+        if (settings.favicon && isImageUsedInUrl(fn, settings.favicon)) isUsedInSettings = true;
       }
 
       if (!isUsedInLinks && !isUsedInSettings) {

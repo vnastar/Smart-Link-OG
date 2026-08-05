@@ -171,6 +171,10 @@ class DBManager {
     }
   }
 
+  public reloadLocal() {
+    this.data = this.loadLocal();
+  }
+
   private loadLocal(): DatabaseSchema {
     try {
       const dir = path.dirname(DB_PATH);
