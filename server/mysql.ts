@@ -247,6 +247,20 @@ export class MySQLService {
       await this.ensureColumnExists(conn, 'logs', 'details', 'TEXT');
       await this.ensureColumnExists(conn, 'logs', 'ip', 'VARCHAR(45) DEFAULT NULL');
 
+      // Create image_blobs table for persistent image storage (bảo toàn hình ảnh không bị mất khi host tự rebuild)
+      await conn.query(`
+        CREATE TABLE IF NOT EXISTS \`image_blobs\` (
+          \`id\` VARCHAR(150) NOT NULL,
+          \`filename\` VARCHAR(150) NOT NULL,
+          \`content_type\` VARCHAR(100) NOT NULL,
+          \`data\` LONGBLOB NOT NULL,
+          \`size\` INT NOT NULL DEFAULT 0,
+          \`created_at\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (\`id\`),
+          KEY \`idx_filename\` (\`filename\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
       // Seed Default Admin User if empty
       const [users]: any = await conn.query('SELECT COUNT(*) as count FROM users');
       if (users[0].count === 0) {
@@ -598,6 +612,65 @@ export class MySQLService {
       );
     } catch (e) {
       console.error('Error saving log to MySQL:', e);
+    }
+  }
+
+  // --- IMAGE BLOB OPERATORS FOR PERSISTENT DB STORAGE ---
+  async saveImageBlob(filename: string, contentType: string, buffer: Buffer) {
+    if (!this.pool || !this.isConnected) return;
+    try {
+      await this.pool.query(
+        `INSERT INTO image_blobs (id, filename, content_type, data, size)
+         VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE content_type=VALUES(content_type), data=VALUES(data), size=VALUES(size)`,
+        [filename, filename, contentType, buffer, buffer.length]
+      );
+      console.log(`💾 Đã lưu thành công hình ảnh [${filename}] (${(buffer.length / 1024).toFixed(1)} KB) vào MySQL DB!`);
+    } catch (e) {
+      console.error('Lỗi khi lưu image blob vào MySQL:', e);
+    }
+  }
+
+  async fetchImageBlob(filename: string): Promise<{ data: Buffer; contentType: string } | null> {
+    if (!this.pool || !this.isConnected) return null;
+    try {
+      const [rows]: any = await this.pool.query(
+        'SELECT content_type, data FROM image_blobs WHERE filename = ? LIMIT 1',
+        [filename]
+      );
+      if (!rows || rows.length === 0) return null;
+      return {
+        contentType: rows[0].content_type || 'image/jpeg',
+        data: Buffer.from(rows[0].data)
+      };
+    } catch (e) {
+      console.error('Lỗi khi truy xuất image blob từ MySQL:', e);
+      return null;
+    }
+  }
+
+  async deleteImageBlob(filename: string) {
+    if (!this.pool || !this.isConnected) return;
+    try {
+      await this.pool.query('DELETE FROM image_blobs WHERE filename = ?', [filename]);
+    } catch (e) {
+      console.error('Lỗi khi xóa image blob từ MySQL:', e);
+    }
+  }
+
+  async fetchAllImageBlobsMeta(): Promise<Array<{ filename: string; contentType: string; size: number; createdAt: Date }>> {
+    if (!this.pool || !this.isConnected) return [];
+    try {
+      const [rows]: any = await this.pool.query('SELECT filename, content_type, size, created_at FROM image_blobs ORDER BY created_at DESC');
+      return rows.map((r: any) => ({
+        filename: r.filename,
+        contentType: r.content_type,
+        size: r.size || 0,
+        createdAt: r.created_at ? new Date(r.created_at) : new Date()
+      }));
+    } catch (e) {
+      console.error('Lỗi khi lấy danh sách image blobs meta từ MySQL:', e);
+      return [];
     }
   }
 }

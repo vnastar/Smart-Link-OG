@@ -51,6 +51,38 @@ const uploadStaticOptions = {
 app.use('/uploads', express.static(persistentUploadsDir, uploadStaticOptions));
 app.use('/uploads', express.static(publicUploadsDir, uploadStaticOptions));
 
+// Dynamic DB fallback for /uploads/:filename (Phục hồi hình ảnh từ MySQL nếu file vật lý bị mất khi host rebuild)
+app.get('/uploads/:filename', async (req: Request, res: Response, next: NextFunction) => {
+  const filename = path.basename(req.params.filename);
+  if (!filename) return next();
+
+  // Kiểm tra xem file có sẵn trên đĩa cứng local hay không
+  const pPath = path.join(persistentUploadsDir, filename);
+  const pubPath = path.join(publicUploadsDir, filename);
+  if (fs.existsSync(pPath) || fs.existsSync(pubPath)) {
+    return next();
+  }
+
+  // Nếu file vật lý bị mất, tự động phục hồi trực tiếp từ MySQL Database
+  if (mysqlService.isConnected) {
+    const blob = await mysqlService.fetchImageBlob(filename);
+    if (blob) {
+      try {
+        fs.writeFileSync(pPath, blob.data);
+      } catch (e) {
+        // ignore disk write error
+      }
+
+      res.setHeader('Content-Type', blob.contentType);
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.send(blob.data);
+    }
+  }
+
+  return res.status(404).send('Image Not Found');
+});
+
 // Helper: Extract Auth User from custom Session / Auth Header
 function getAuthUser(req: Request) {
   const authHeader = req.headers.authorization;
@@ -903,7 +935,10 @@ app.post('/api/upload', requireAuth, async (req: Request, res: Response) => {
     return res.status(403).json({ error: 'Hệ thống đã tắt chức năng upload ảnh' });
   }
 
-  const { image_base64, file_name, image_mode = 'fast' } = req.body;
+  const { image_base64, file_name, image_mode, mode: bodyMode } = req.body;
+  const queryMode = req.query.mode as string;
+  const selectedMode = (queryMode || image_mode || bodyMode || 'fast').toString().toLowerCase();
+  const mode: ImageMode = selectedMode === 'hq' ? 'hq' : 'fast';
   if (!image_base64) {
     return res.status(400).json({ error: 'Không tìm thấy dữ liệu ảnh' });
   }
@@ -931,7 +966,7 @@ app.post('/api/upload', requireAuth, async (req: Request, res: Response) => {
       detectedExt = 'webp';
     }
 
-    const mode: ImageMode = image_mode === 'hq' ? 'hq' : 'fast';
+ 
 
     // Optimize buffer according to mode ('fast' for ultra-light Bot latency or 'hq' for sharp original)
     const optimized = await ImageOptimizer.optimizeBuffer(rawBuffer, detectedExt, mode);
@@ -940,6 +975,12 @@ app.post('/api/upload', requireAuth, async (req: Request, res: Response) => {
     const targetPath = path.join(uploadsDir, uniqueName);
 
     fs.writeFileSync(targetPath, optimized.buffer);
+
+    // Lưu vĩnh viễn hình ảnh vào MySQL DB để chống thất thoát khi host tự động rebuild/git deploy
+    if (mysqlService.isConnected) {
+      await mysqlService.saveImageBlob(uniqueName, optimized.contentType, optimized.buffer);
+    }
+
     const siteDomain = getRequestSiteDomain(req);
     const publicUrl = `${siteDomain}/uploads/${uniqueName}`;
 
@@ -969,13 +1010,22 @@ app.get('/api/og-image', async (req: Request, res: Response) => {
     const siteDomain = getRequestSiteDomain(req);
     // If it's a local upload URL
     if (imageUrl.startsWith('/uploads/') || imageUrl.startsWith(`${siteDomain}/uploads/`)) {
-      const filename = imageUrl.split('/uploads/').pop() || '';
+      const filename = path.basename(imageUrl.split('/uploads/').pop() || '');
       const localPath = path.join(uploadsDir, filename);
       if (fs.existsSync(localPath)) {
         res.setHeader('Content-Type', filename.endsWith('.png') ? 'image/png' : 'image/jpeg');
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         res.setHeader('Access-Control-Allow-Origin', '*');
         return res.sendFile(localPath);
+      } else if (mysqlService.isConnected) {
+        const blob = await mysqlService.fetchImageBlob(filename);
+        if (blob) {
+          try { fs.writeFileSync(localPath, blob.data); } catch (e) {}
+          res.setHeader('Content-Type', blob.contentType);
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          return res.send(blob.data);
+        }
       }
     }
 
@@ -1457,6 +1507,21 @@ app.get('/api/admin/images', requireAdmin, async (req: Request, res: Response) =
       }
     });
 
+    // Merge tệp ảnh lưu trong MySQL Database (trường hợp đĩa cứng local bị xóa khi host rebuild)
+    if (mysqlService.isConnected) {
+      const dbBlobs = await mysqlService.fetchAllImageBlobsMeta();
+      dbBlobs.forEach(blob => {
+        if (!filesMap.has(blob.filename)) {
+          filesMap.set(blob.filename, {
+            filename: blob.filename,
+            filePath: path.join(persistentUploadsDir, blob.filename),
+            size: blob.size,
+            birthtime: blob.createdAt
+          });
+        }
+      });
+    }
+
     const siteDomain = getRequestSiteDomain(req);
 
     const imagesList = Array.from(filesMap.values()).map(file => {
@@ -1523,7 +1588,7 @@ app.get('/api/admin/images', requireAdmin, async (req: Request, res: Response) =
   }
 });
 
-app.delete('/api/admin/images/:filename', requireAdmin, (req: Request, res: Response) => {
+app.delete('/api/admin/images/:filename', requireAdmin, async (req: Request, res: Response) => {
   try {
     const rawFilename = req.params.filename;
     const safeFilename = path.basename(rawFilename);
@@ -1540,6 +1605,11 @@ app.delete('/api/admin/images/:filename', requireAdmin, (req: Request, res: Resp
         }
       }
     });
+
+    if (mysqlService.isConnected) {
+      await mysqlService.deleteImageBlob(safeFilename);
+      deleted = true;
+    }
 
     if (!deleted) {
       return res.status(404).json({ error: 'Không tìm thấy file hình ảnh để xóa' });
@@ -1610,6 +1680,10 @@ app.post('/api/admin/images/cleanup-orphans', requireAdmin, async (req: Request,
             } catch (e) {}
           }
         });
+        if (mysqlService.isConnected) {
+          await mysqlService.deleteImageBlob(fn);
+          fileDeleted = true;
+        }
         if (fileDeleted) {
           deletedCount++;
           freedSizeBytes += item.size;

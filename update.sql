@@ -117,6 +117,18 @@ CREATE TABLE IF NOT EXISTS `logs` (
   KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Bảng image_blobs
+CREATE TABLE IF NOT EXISTS `image_blobs` (
+  `id` VARCHAR(150) NOT NULL,
+  `filename` VARCHAR(150) NOT NULL,
+  `content_type` VARCHAR(100) NOT NULL,
+  `data` LONGBLOB NOT NULL,
+  `size` INT NOT NULL DEFAULT 0,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_filename` (`filename`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ----------------------------------------------------------------------------
 -- 2. ĐỘNG BỔ SUNG CỘT MỚI VÀO BẢNG CŨ BẰNG STORED PROCEDURE
 -- ----------------------------------------------------------------------------

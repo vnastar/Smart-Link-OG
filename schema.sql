@@ -158,4 +158,20 @@ CREATE TABLE `logs` (
   KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- --------------------------------------------------------
+-- Table structure for table `image_blobs`
+-- --------------------------------------------------------
+
+DROP TABLE IF EXISTS `image_blobs`;
+CREATE TABLE `image_blobs` (
+  `id` VARCHAR(150) NOT NULL,
+  `filename` VARCHAR(150) NOT NULL,
+  `content_type` VARCHAR(100) NOT NULL,
+  `data` LONGBLOB NOT NULL,
+  `size` INT NOT NULL DEFAULT 0,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_filename` (`filename`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;

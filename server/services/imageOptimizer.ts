@@ -62,18 +62,34 @@ export class ImageOptimizer {
       const isHq = mode === 'hq';
 
       if (isHq) {
-        // Mode HQ: Keep original aspect ratio (fit: 'inside'), only downscale if width > 2560px, quality 100
+        // Mode HQ: Keep original aspect ratio (fit: 'inside')
         const origWidth = metadata.width || 0;
         const origHeight = metadata.height || 0;
 
-        let transformer = image;
-        if (origWidth > 2560) {
-          transformer = transformer.resize({
-            width: 2560,
-            fit: 'inside',
-            withoutEnlargement: true
-          });
+        // Nếu width <= 2560px: Giữ nguyên 100% file gốc (Buffer nguyên bản) không qua Sharp re-encode
+        if (origWidth <= 2560 && origWidth > 0) {
+          const rawExt = cleanExt || (metadata.format === 'png' ? 'png' : metadata.format === 'webp' ? 'webp' : metadata.format === 'gif' ? 'gif' : 'jpg');
+          let mimeType = 'image/jpeg';
+          if (rawExt === 'png') mimeType = 'image/png';
+          else if (rawExt === 'webp') mimeType = 'image/webp';
+          else if (rawExt === 'gif') mimeType = 'image/gif';
+          else if (rawExt === 'svg') mimeType = 'image/svg+xml';
+
+          return {
+            buffer, // Direct raw original buffer, 100% uncompressed
+            ext: rawExt,
+            contentType: mimeType,
+            width: origWidth,
+            height: origHeight
+          };
         }
+
+        // Nếu width > 2560px: Resize thu nhỏ chiều rộng về 2560px (fit: 'inside'), chất lượng 100%
+        let transformer = image.resize({
+          width: 2560,
+          fit: 'inside',
+          withoutEnlargement: true
+        });
 
         if (hasAlpha) {
           const outputBuffer = await transformer.png({
@@ -86,7 +102,7 @@ export class ImageOptimizer {
             buffer: outputBuffer,
             ext: 'png',
             contentType: 'image/png',
-            width: outMeta.width || origWidth,
+            width: outMeta.width || 2560,
             height: outMeta.height || origHeight
           };
         } else {
@@ -101,7 +117,7 @@ export class ImageOptimizer {
             buffer: outputBuffer,
             ext: 'jpg',
             contentType: 'image/jpeg',
-            width: outMeta.width || origWidth,
+            width: outMeta.width || 2560,
             height: outMeta.height || origHeight
           };
         }

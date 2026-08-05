@@ -264,9 +264,14 @@ export const api = {
   },
 
   async uploadImage(imageBase64: string, fileName?: string, imageMode: 'fast' | 'hq' = 'fast'): Promise<{ url: string; size?: number; mode?: string }> {
-    const data = await this.request('/api/upload', {
+    const data = await this.request(`/api/upload?mode=${encodeURIComponent(imageMode)}`, {
       method: 'POST',
-      body: JSON.stringify({ image_base64: imageBase64, file_name: fileName, image_mode: imageMode })
+      body: JSON.stringify({
+        image_base64: imageBase64,
+        file_name: fileName,
+        image_mode: imageMode,
+        mode: imageMode
+      })
     });
     return data;
   },
