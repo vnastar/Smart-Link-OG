@@ -59,49 +59,92 @@ export class ImageOptimizer {
         };
       }
 
-      // Target dimension: OpenGraph standard 1200 x 630 (1.91:1 ratio)
-      // Smart crop with cover or inside fit
-      const transformer = image.resize({
-        width: 1200,
-        height: 630,
-        fit: 'cover',
-        position: 'center',
-        withoutEnlargement: false
-      });
-
       const isHq = mode === 'hq';
 
-      if (hasAlpha) {
-        // Output clean PNG with mode quality
-        const outputBuffer = await transformer.png({
-          quality: isHq ? 95 : 80,
-          compressionLevel: isHq ? 5 : 9
-        }).toBuffer();
+      if (isHq) {
+        // Mode HQ: Keep original aspect ratio (fit: 'inside'), only downscale if width > 2560px, quality 100
+        const origWidth = metadata.width || 0;
+        const origHeight = metadata.height || 0;
 
-        const outMeta = await sharp(outputBuffer).metadata();
-        return {
-          buffer: outputBuffer,
-          ext: 'png',
-          contentType: 'image/png',
-          width: outMeta.width || 1200,
-          height: outMeta.height || 630
-        };
+        let transformer = image;
+        if (origWidth > 2560) {
+          transformer = transformer.resize({
+            width: 2560,
+            fit: 'inside',
+            withoutEnlargement: true
+          });
+        }
+
+        if (hasAlpha) {
+          const outputBuffer = await transformer.png({
+            quality: 100,
+            compressionLevel: 3
+          }).toBuffer();
+
+          const outMeta = await sharp(outputBuffer).metadata();
+          return {
+            buffer: outputBuffer,
+            ext: 'png',
+            contentType: 'image/png',
+            width: outMeta.width || origWidth,
+            height: outMeta.height || origHeight
+          };
+        } else {
+          const outputBuffer = await transformer.jpeg({
+            quality: 100,
+            progressive: true,
+            mozjpeg: true
+          }).toBuffer();
+
+          const outMeta = await sharp(outputBuffer).metadata();
+          return {
+            buffer: outputBuffer,
+            ext: 'jpg',
+            contentType: 'image/jpeg',
+            width: outMeta.width || origWidth,
+            height: outMeta.height || origHeight
+          };
+        }
       } else {
-        // Output JPEG
-        const outputBuffer = await transformer.jpeg({
-          quality: isHq ? 95 : 80,
-          progressive: true,
-          mozjpeg: true
-        }).toBuffer();
+        // Fast Mode (Standard Optimization): Target OpenGraph 1200 x 630 fit cover, quality 80
+        const transformer = image.resize({
+          width: 1200,
+          height: 630,
+          fit: 'cover',
+          position: 'center',
+          withoutEnlargement: false
+        });
 
-        const outMeta = await sharp(outputBuffer).metadata();
-        return {
-          buffer: outputBuffer,
-          ext: 'jpg',
-          contentType: 'image/jpeg',
-          width: outMeta.width || 1200,
-          height: outMeta.height || 630
-        };
+        if (hasAlpha) {
+          const outputBuffer = await transformer.png({
+            quality: 80,
+            compressionLevel: 9
+          }).toBuffer();
+
+          const outMeta = await sharp(outputBuffer).metadata();
+          return {
+            buffer: outputBuffer,
+            ext: 'png',
+            contentType: 'image/png',
+            width: outMeta.width || 1200,
+            height: outMeta.height || 630
+          };
+        } else {
+          const outputBuffer = await transformer.jpeg({
+            quality: 80,
+            progressive: true,
+            mozjpeg: true
+          }).toBuffer();
+
+          const outMeta = await sharp(outputBuffer).metadata();
+          return {
+            buffer: outputBuffer,
+            ext: 'jpg',
+            contentType: 'image/jpeg',
+            width: outMeta.width || 1200,
+            height: outMeta.height || 630
+          };
+        }
       }
     } catch (err) {
       console.error('ImageOptimizer.optimizeBuffer error:', err);

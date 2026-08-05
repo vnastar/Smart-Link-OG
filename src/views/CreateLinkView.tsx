@@ -385,25 +385,32 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
                   </div>
 
                   {/* Mode Selector Option */}
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 space-y-2">
-                    <span className="text-[11px] font-semibold text-slate-600 block uppercase tracking-wider">
-                      Chế độ xử lý ảnh khi upload:
-                    </span>
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                        Chế độ tải ảnh (Chọn trước khi tải):
+                      </span>
+                      <span className="text-[10px] font-bold text-indigo-700 bg-indigo-100/80 border border-indigo-200 px-2 py-0.5 rounded-md">
+                        Đã chọn: {imageMode === 'fast' ? '⚡ Tối ưu hoá (Mặc định)' : '💎 Chất lượng cao (HQ)'}
+                      </span>
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => setImageMode('fast')}
-                        className={`p-2 rounded-lg text-left border text-xs transition flex items-start gap-2 ${
+                        className={`p-2.5 rounded-xl text-left border text-xs transition flex items-start gap-2.5 ${
                           imageMode === 'fast'
-                            ? 'bg-indigo-50/80 border-indigo-300 text-indigo-900 font-medium shadow-xs'
+                            ? 'bg-indigo-50/90 border-indigo-500 text-indigo-950 font-medium shadow-xs ring-2 ring-indigo-500/20'
                             : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
                         }`}
                       >
-                        <span className="text-base shrink-0">⚡</span>
+                        <span className="text-lg shrink-0">⚡</span>
                         <div>
-                          <span className="font-bold block text-slate-800 text-xs">Tối ưu Bot (Khuyên dùng)</span>
-                          <span className="text-[10px] text-slate-500 block leading-tight">
-                            Crop 1200x630, nén nhẹ siêu tốc (~150KB-300KB), Bot Zalo/FB preview tức thì
+                          <span className="font-bold block text-slate-800 text-xs">Tối ưu hoá (Mặc định)</span>
+                          <span className="text-[10px] text-slate-500 block leading-tight mt-0.5">
+                            Crop 1200x630 chuẩn Bot FB/Zalo, nén nhẹ siêu tốc (~150KB-300KB)
                           </span>
                         </div>
                       </button>
@@ -411,17 +418,17 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
                       <button
                         type="button"
                         onClick={() => setImageMode('hq')}
-                        className={`p-2 rounded-lg text-left border text-xs transition flex items-start gap-2 ${
+                        className={`p-2.5 rounded-xl text-left border text-xs transition flex items-start gap-2.5 ${
                           imageMode === 'hq'
-                            ? 'bg-indigo-50/80 border-indigo-300 text-indigo-900 font-medium shadow-xs'
+                            ? 'bg-indigo-50/90 border-indigo-500 text-indigo-950 font-medium shadow-xs ring-2 ring-indigo-500/20'
                             : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
                         }`}
                       >
-                        <span className="text-base shrink-0">💎</span>
+                        <span className="text-lg shrink-0">💎</span>
                         <div>
                           <span className="font-bold block text-slate-800 text-xs">Chất lượng cao (HQ)</span>
-                          <span className="text-[10px] text-slate-500 block leading-tight">
-                            Crop 1200x630, nét căng sắc mịn (Quality 95%), giữ trọn màu sắc chi tiết
+                          <span className="text-[10px] text-slate-500 block leading-tight mt-0.5">
+                            Giữ nguyên tỷ lệ gốc, nén quality 100%, chỉ thu nhỏ nếu width &gt; 2560px
                           </span>
                         </div>
                       </button>
@@ -430,9 +437,13 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
 
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-3.5 py-2.5 rounded-xl text-xs font-medium transition flex items-center justify-center gap-1.5 min-h-[44px]">
-                        <Upload className="w-4 h-4 text-indigo-600" />
-                        <span>{uploading ? 'Đang tải & xử lý...' : 'Tải ảnh từ máy (Max 20MB)'}</span>
+                      <label className="cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-700 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 min-h-[44px] shadow-xs">
+                        <Upload className="w-4 h-4 text-white" />
+                        <span>
+                          {uploading
+                            ? 'Đang tải & xử lý...'
+                            : `Tải ảnh lên [${imageMode === 'fast' ? '⚡ Tối ưu hoá' : '💎 Chất lượng cao'}]`}
+                        </span>
                         <input
                           type="file"
                           accept="image/png, image/jpeg, image/webp"
@@ -440,7 +451,7 @@ export const CreateLinkView: React.FC<CreateLinkViewProps> = ({
                           className="hidden"
                         />
                       </label>
-                      <span className="text-[11px] text-slate-500">JPG, PNG, WEBP</span>
+                      <span className="text-[11px] text-slate-500">JPG, PNG, WEBP (Max 20MB)</span>
                     </div>
 
                     {image && (
