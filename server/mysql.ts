@@ -218,6 +218,14 @@ export class MySQLService {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
 
+      // Auto Migration checks for visits table
+      await this.ensureColumnExists(conn, 'visits', 'ip', 'VARCHAR(45) DEFAULT NULL');
+      await this.ensureColumnExists(conn, 'visits', 'country', "VARCHAR(100) DEFAULT 'TP. Hồ Chí Minh'");
+      await this.ensureColumnExists(conn, 'visits', 'referer', "VARCHAR(255) DEFAULT 'Direct'");
+      await this.ensureColumnExists(conn, 'visits', 'browser', "VARCHAR(100) DEFAULT 'Google Chrome'");
+      await this.ensureColumnExists(conn, 'visits', 'device', "VARCHAR(50) DEFAULT 'Mobile'");
+      await this.ensureColumnExists(conn, 'visits', 'is_bot', 'TINYINT(1) NOT NULL DEFAULT 0');
+
       // Create logs table
       await conn.query(`
         CREATE TABLE IF NOT EXISTS \`logs\` (
@@ -233,6 +241,11 @@ export class MySQLService {
           KEY \`idx_created_at\` (\`created_at\`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
+
+      // Auto Migration checks for logs table
+      await this.ensureColumnExists(conn, 'logs', 'user_name', "VARCHAR(100) DEFAULT ''");
+      await this.ensureColumnExists(conn, 'logs', 'details', 'TEXT');
+      await this.ensureColumnExists(conn, 'logs', 'ip', 'VARCHAR(45) DEFAULT NULL');
 
       // Seed Default Admin User if empty
       const [users]: any = await conn.query('SELECT COUNT(*) as count FROM users');
@@ -375,10 +388,10 @@ export class MySQLService {
         `INSERT INTO links (id, user_id, user_name, slug, destination_url, title, description, image, og_url, og_type, og_site_name, clicks, status, redirect_code, expires_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
-         user_name=VALUES(user_name), slug=VALUES(slug), destination_url=VALUES(destination_url), title=VALUES(title),
-         description=VALUES(description), image=VALUES(image), og_url=VALUES(og_url), og_type=VALUES(og_type),
-         og_site_name=VALUES(og_site_name), clicks=VALUES(clicks), status=VALUES(status), redirect_code=VALUES(redirect_code),
-         expires_at=VALUES(expires_at)`,
+         user_id=VALUES(user_id), user_name=VALUES(user_name), slug=VALUES(slug), destination_url=VALUES(destination_url),
+         title=VALUES(title), description=VALUES(description), image=VALUES(image), og_url=VALUES(og_url),
+         og_type=VALUES(og_type), og_site_name=VALUES(og_site_name), clicks=VALUES(clicks), status=VALUES(status),
+         redirect_code=VALUES(redirect_code), expires_at=VALUES(expires_at)`,
         [
           link.id,
           link.user_id,
@@ -393,7 +406,7 @@ export class MySQLService {
           link.og_site_name || '',
           link.clicks || 0,
           link.status || 'active',
-          (link as any).redirect_code || 302,
+          link.redirect_code || 302,
           expiresAt
         ]
       );
@@ -445,7 +458,7 @@ export class MySQLService {
         recaptcha_version: r.recaptcha_version || 'v2_checkbox',
         captcha_provider: r.captcha_provider || 'recaptcha',
         default_expiration_days: r.default_expiration_days || 0,
-        allow_unlimited_expiration: Boolean(r.allow_unlimited_expiration),
+        allow_unlimited_expiration: r.allow_unlimited_expiration !== 0,
         max_expiration_days: r.max_expiration_days || 0,
         private_mode_enable: Boolean(r.private_mode_enable),
         custom_login_path: r.custom_login_path || '/login'

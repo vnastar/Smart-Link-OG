@@ -312,9 +312,14 @@ class DBManager {
     const newLink: LinkItem = {
       ...link,
       id: 'lnk_' + Math.random().toString(36).substr(2, 9),
-      user_name: user ? user.username : 'Unknown',
+      user_name: user ? user.username : (link.user_name || 'Unknown'),
       clicks: 0,
       status: link.status || 'active',
+      redirect_code: link.redirect_code || 302,
+      og_url: link.og_url || '',
+      og_type: link.og_type || 'website',
+      og_site_name: link.og_site_name || '',
+      expires_at: link.expires_at || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -390,6 +395,12 @@ class DBManager {
     const newVisit: VisitLog = {
       ...visit,
       id: 'vst_' + Math.random().toString(36).substr(2, 9),
+      ip: visit.ip || '',
+      country: visit.country || 'TP. Hồ Chí Minh',
+      referer: visit.referer || 'Direct',
+      browser: visit.browser || 'Google Chrome',
+      device: visit.device || 'Mobile',
+      is_bot: Boolean(visit.is_bot),
       created_at: new Date().toISOString()
     };
     this.data.visits.unshift(newVisit);
