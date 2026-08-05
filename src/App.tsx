@@ -18,6 +18,7 @@ import { MyLinksView } from './views/MyLinksView.js';
 import { AdminDashboardView } from './views/AdminDashboardView.js';
 import { AdminUsersView } from './views/AdminUsersView.js';
 import { AdminLinksView } from './views/AdminLinksView.js';
+import { AdminImagesView } from './views/AdminImagesView.js';
 import { AdminSettingsView } from './views/AdminSettingsView.js';
 import { AdminLogsView } from './views/AdminLogsView.js';
 import { ClickAnalyticsCard } from './components/ClickAnalyticsCard.js';
@@ -306,6 +307,10 @@ export default function App() {
               onOpenAnalytics={openAnalytics}
               siteDomain={siteConfig.site_domain}
             />
+          )}
+
+          {currentPath === '/admin/images' && (
+            <AdminImagesView />
           )}
 
           {currentPath === '/admin/settings' && (

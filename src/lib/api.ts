@@ -1,4 +1,4 @@
-import { User, UserRole, UserStatus, LinkItem, SiteSettings, UserStats, AdminStats, AuditLog, VisitLog, BotSimulationResult, AnalyticsData } from '../types.js';
+import { User, UserRole, UserStatus, LinkItem, SiteSettings, UserStats, AdminStats, AuditLog, VisitLog, BotSimulationResult, AnalyticsData, AdminImagesResponse } from '../types.js';
 
 const TOKEN_KEY = 'smart_link_og_token';
 
@@ -388,5 +388,21 @@ export const api = {
 
   async getAdminLogs(): Promise<{ visits: VisitLog[]; logs: AuditLog[] }> {
     return this.request('/api/admin/logs');
+  },
+
+  async getAdminImages(): Promise<AdminImagesResponse> {
+    return this.request('/api/admin/images');
+  },
+
+  async deleteAdminImage(filename: string): Promise<{ success: boolean; message: string }> {
+    return this.request(`/api/admin/images/${encodeURIComponent(filename)}`, {
+      method: 'DELETE'
+    });
+  },
+
+  async cleanupOrphanImages(): Promise<{ success: boolean; deleted_count: number; freed_size_bytes: number; message: string }> {
+    return this.request('/api/admin/images/cleanup-orphans', {
+      method: 'POST'
+    });
   }
 };

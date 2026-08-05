@@ -1406,6 +1406,173 @@ app.get('/api/admin/backup/export', requireAdmin, (req: Request, res: Response) 
   return res.send(JSON.stringify(backupData, null, 2));
 });
 
+// Admin Image Management Endpoints
+app.get('/api/admin/images', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const allLinks = db.getLinks();
+    const filesMap = new Map<string, { filename: string; filePath: string; size: number; birthtime: Date }>();
+
+    [persistentUploadsDir, publicUploadsDir].forEach(dir => {
+      if (fs.existsSync(dir)) {
+        const fileNames = fs.readdirSync(dir);
+        fileNames.forEach(fn => {
+          if (fn === 'cache' || fn.startsWith('.')) return;
+          const fp = path.join(dir, fn);
+          try {
+            const stat = fs.statSync(fp);
+            if (stat.isFile()) {
+              if (!filesMap.has(fn)) {
+                filesMap.set(fn, {
+                  filename: fn,
+                  filePath: fp,
+                  size: stat.size,
+                  birthtime: stat.birthtime || stat.mtime
+                });
+              }
+            }
+          } catch (e) {}
+        });
+      }
+    });
+
+    const siteDomain = getRequestSiteDomain(req);
+
+    const imagesList = Array.from(filesMap.values()).map(file => {
+      const publicUrl = `${siteDomain}/uploads/${file.filename}`;
+      const relativeUrl = `/uploads/${file.filename}`;
+
+      const usedByLinks = allLinks.filter(link => {
+        if (!link.image) return false;
+        return link.image.includes(file.filename);
+      }).map(l => ({
+        id: l.id,
+        slug: l.slug,
+        title: l.title || l.slug,
+        user_name: l.user_name || 'Anonymous'
+      }));
+
+      return {
+        filename: file.filename,
+        url: publicUrl,
+        relative_url: relativeUrl,
+        size: file.size,
+        created_at: file.birthtime.toISOString(),
+        used_by_links: usedByLinks,
+        is_orphaned: usedByLinks.length === 0
+      };
+    });
+
+    imagesList.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    const totalSizeBytes = imagesList.reduce((acc, img) => acc + img.size, 0);
+    const orphanedList = imagesList.filter(img => img.is_orphaned);
+    const orphanedSizeBytes = orphanedList.reduce((acc, img) => acc + img.size, 0);
+
+    return res.json({
+      total_files: imagesList.length,
+      total_size_bytes: totalSizeBytes,
+      orphaned_count: orphanedList.length,
+      orphaned_size_bytes: orphanedSizeBytes,
+      images: imagesList
+    });
+  } catch (err) {
+    console.error('Lỗi khi lấy danh sách hình ảnh admin:', err);
+    return res.status(500).json({ error: 'Lỗi máy chủ khi lấy danh sách hình ảnh' });
+  }
+});
+
+app.delete('/api/admin/images/:filename', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const rawFilename = req.params.filename;
+    const safeFilename = path.basename(rawFilename);
+
+    let deleted = false;
+    [persistentUploadsDir, publicUploadsDir].forEach(dir => {
+      const fp = path.join(dir, safeFilename);
+      if (fs.existsSync(fp)) {
+        try {
+          fs.unlinkSync(fp);
+          deleted = true;
+        } catch (e) {
+          console.error(`Lỗi khi xóa file ${fp}:`, e);
+        }
+      }
+    });
+
+    if (!deleted) {
+      return res.status(404).json({ error: 'Không tìm thấy file hình ảnh để xóa' });
+    }
+
+    db.addLog((req as any).user.id, 'DELETE_IMAGE', `Xóa tệp ảnh ${safeFilename}`, req.ip || '127.0.0.1');
+
+    return res.json({ success: true, message: 'Đã xóa file hình ảnh thành công' });
+  } catch (err) {
+    console.error('Lỗi khi xóa hình ảnh:', err);
+    return res.status(500).json({ error: 'Lỗi máy chủ khi xóa hình ảnh' });
+  }
+});
+
+app.post('/api/admin/images/cleanup-orphans', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const allLinks = db.getLinks();
+    let deletedCount = 0;
+    let freedSizeBytes = 0;
+
+    const filesMap = new Map<string, { filename: string; filePaths: string[]; size: number }>();
+
+    [persistentUploadsDir, publicUploadsDir].forEach(dir => {
+      if (fs.existsSync(dir)) {
+        const fileNames = fs.readdirSync(dir);
+        fileNames.forEach(fn => {
+          if (fn === 'cache' || fn.startsWith('.')) return;
+          const fp = path.join(dir, fn);
+          try {
+            const stat = fs.statSync(fp);
+            if (stat.isFile()) {
+              if (!filesMap.has(fn)) {
+                filesMap.set(fn, { filename: fn, filePaths: [fp], size: stat.size });
+              } else {
+                filesMap.get(fn)!.filePaths.push(fp);
+              }
+            }
+          } catch (e) {}
+        });
+      }
+    });
+
+    for (const [fn, item] of filesMap.entries()) {
+      const isUsed = allLinks.some(link => link.image && link.image.includes(fn));
+      if (!isUsed) {
+        let fileDeleted = false;
+        item.filePaths.forEach(fp => {
+          if (fs.existsSync(fp)) {
+            try {
+              fs.unlinkSync(fp);
+              fileDeleted = true;
+            } catch (e) {}
+          }
+        });
+        if (fileDeleted) {
+          deletedCount++;
+          freedSizeBytes += item.size;
+        }
+      }
+    }
+
+    db.addLog((req as any).user.id, 'CLEANUP_IMAGES', `Dọn dẹp ${deletedCount} tệp ảnh rác (${(freedSizeBytes / (1024 * 1024)).toFixed(2)} MB)`, req.ip || '127.0.0.1');
+
+    return res.json({
+      success: true,
+      deleted_count: deletedCount,
+      freed_size_bytes: freedSizeBytes,
+      message: `Đã dọn dẹp thành công ${deletedCount} tệp ảnh rác, giải phóng ${(freedSizeBytes / (1024 * 1024)).toFixed(2)} MB`
+    });
+  } catch (err) {
+    console.error('Lỗi khi dọn dẹp ảnh rác:', err);
+    return res.status(500).json({ error: 'Lỗi máy chủ khi dọn dẹp ảnh rác' });
+  }
+});
+
 // Public Site Config for Frontend initial load
 app.get('/api/public/config', (req: Request, res: Response) => {
   const settings = db.getSettings();

@@ -147,3 +147,26 @@ export interface BotSimulationResult {
   html_preview?: string;
   redirect_url?: string;
 }
+
+export interface AdminImageData {
+  filename: string;
+  url: string;
+  relative_url: string;
+  size: number;
+  created_at: string;
+  used_by_links: {
+    id: string;
+    slug: string;
+    title: string;
+    user_name?: string;
+  }[];
+  is_orphaned: boolean;
+}
+
+export interface AdminImagesResponse {
+  total_files: number;
+  total_size_bytes: number;
+  orphaned_count: number;
+  orphaned_size_bytes: number;
+  images: AdminImageData[];
+}
